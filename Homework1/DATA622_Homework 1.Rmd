@@ -1,0 +1,554 @@
+---
+title: "DATA622_Homework 1"
+output: 
+  html_document:
+    theme: cerulean
+    Highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+#### Name: Charles Ugiagbe.
+#### Date: 04/16/2024
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Assignment Overview
+
+1. Visit the following website and explore the range of sizes of this          dataset (from 100 to 5 million records):                                 https://excelbianalytics.com/wp/downloads-18-sample-csv-files-data-sets-for-    testing-sales/ or (new) https://www.kaggle.com/datasets
+
+2. Select 2 files to download - Based on your computer’s capabilities          (memory, CPU), select 2 files you can handle (recommended one small, one    large)
+
+3. Download the files
+
+4. Review the structure and content of the tables, and think about the data    sets (structure, size, dependencies, labels, etc)
+
+5. Consider the similarities and differences in the two data sets you have     downloaded
+
+6. Think about how to analyze and predict an outcome based on the datasets     available
+
+7. Based on the data you have, think which two machine learning algorithms     presented so far could be used to analyze the data
+
+
+### Load the Required packages
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(tidyr)
+library(rpart)
+library(rpart.plot)
+library(tidymodels)   
+library(gridExtra)
+library(skimr)
+library(pROC)
+library(stringr)
+library(knitr)
+```
+
+### load the Dataset
+
+```{r}
+# small data = 1000 records
+# large data = 100,000 records
+
+small_data <- read.csv("https://raw.githubusercontent.com/omocharly/DATA622/main/Homework1/1000%20Sales%20Records.csv")
+
+large_data <- read.csv("https://raw.githubusercontent.com/omocharly/DATA622/main/Homework1/100000%20Sales%20Records.csv")
+```
+
+```{r}
+head(small_data)
+```
+
+
+```{r}
+head(large_data)
+```
+
+```{r}
+glimpse(small_data)
+```
+
+```{r}
+glimpse(large_data)
+```
+**It appears that Both the small dataset and large datasets contain the same columns, differing only in the number of records present. The sales datasets contain 14 columns in total, and each record describes one sale of goods.**
+
+
+### Data Exploration
+
+Let's explore the data sets; first the `small_df` data set, using the `skimr` library we can obtain quick summary statistics beyond the `summary()`. We notice that we have 14 variables split into 7 character and 7 numeric. There seems to be no missing values, so this will have a simple preparation before we build our models.
+
+```{r, echo=FALSE}
+# summary of the small dataset
+skim(small_data)
+```
+
+
+#### Let's take a look at the distributions of the numeric variables for the small data set:
+
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# histogram for units sold of small dataset
+p1 <- small_data %>% 
+ggplot( aes(x=Units.Sold)) +
+    geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Units Sold Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for unit price of small dataset
+p2 <- small_data %>% 
+ggplot( aes(x=Unit.Price)) +
+    geom_histogram(fill="#69a0b3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Unit Price Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for unit cost of small dataset
+p3 <- small_data %>% 
+ggplot( aes(x=Unit.Cost)) +
+    geom_histogram(fill="#696fb3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Unit Cost Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Revenue of small dataset
+p4 <- small_data %>% 
+ggplot( aes(x=Total.Revenue)) +
+    geom_histogram(fill="#b369ae", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Total Revenue Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Cost of small dataset
+p5 <- small_data %>% 
+ggplot( aes(x=Total.Cost)) +
+    geom_histogram(fill="#77b369", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Total Cost Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Profit of small dataset
+p6 <- small_data %>% 
+ggplot( aes(x=Total.Profit)) +
+    geom_histogram(fill="#b37e69", color="#e9ecef", alpha=0.8) +
+    ggtitle("Small_df Total Profit Histogram") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(1, 3))
+grid.arrange(p1,p2,p3,p4,p5,p6)
+```
+
+
+
+#### Categorical variables visualization for the small dataset:
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# bar charts for the categorical variables
+
+# Region Bar chart
+p7 <- small_data %>%
+  ggplot(aes(x=Region)) +
+  geom_bar(fill="#69b3a2") +
+  
+  ggtitle("Region Bar Chart") +
+    
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Item Type Bar chart
+p8 <- small_data %>% 
+  ggplot(aes(x=Item.Type)) +
+  geom_bar(fill="#69a0b3") +
+  ggtitle("Item Type Bar Chart") +
+    
+    theme(
+      plot.title = element_text(size = 15), 
+      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)
+    )
+
+# Sales Channel Bar chart  
+p9 <- small_data %>% 
+  ggplot(aes(x=Sales.Channel)) +
+  geom_bar(fill="#696fb3") +
+  ggtitle("Sales Channel Bar Chart") +
+    
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Order Priority Bar chart  
+p10 <- small_data %>% 
+  ggplot(aes(x=Order.Priority)) +
+  geom_bar(fill="#b369ae") +
+  scale_x_discrete(labels=c('Critical', 'High', 'Low', 'Medium')) +
+  ggtitle("Order Priority Bar Chart") +
+    
+    theme(
+      plot.title = element_text(size = 15)
+    )
+  
+# displaying the bar charts
+par(mfrow = c(3, 3))
+grid.arrange(p7,p8,p9,p10)
+```
+
+
+$~$
+
+**Now, the `large_df` dataset is composed of 100,000 values of the same 14 variables as the `small` data set. It also has 7 character and 7 numeric variables with no missing values.**
+
+```{r, echo=FALSE}
+# summary of the large dataset
+skim(large_data)
+```
+$~$
+
+
+#### Visualizations of the numeric variable distributions of the large dataset:
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# histogram for units sold of small dataset
+p11 <- large_data %>% 
+ggplot( aes(x=Units.Sold)) +
+    geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Units Sold Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for unit price of small dataset
+p12 <- large_data %>% 
+ggplot( aes(x=Unit.Price)) +
+    geom_histogram(fill="#69a0b3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Unit Price Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for unit cost of small dataset
+p13 <- large_data %>% 
+ggplot( aes(x=Unit.Cost)) +
+    geom_histogram(fill="#696fb3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Unit Cost Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Revenue of small dataset
+p14 <- large_data %>% 
+ggplot( aes(x=Total.Revenue)) +
+    geom_histogram(fill="#b369ae", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Total Revenue Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Cost of small dataset
+p15 <- large_data %>% 
+ggplot( aes(x=Total.Cost)) +
+    geom_histogram(fill="#77b369", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Total Cost Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for Total Profit of small dataset
+p16 <- large_data %>% 
+ggplot( aes(x=Total.Profit)) +
+    geom_histogram(fill="#b37e69", color="#e9ecef", alpha=0.8) +
+    ggtitle("Large Dataset Total Profit Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 3))
+grid.arrange(p11,p12,p13,p14,p15,p16)
+```
+
+$~$
+
+#### Now let's look at the large data categorical variables:
+
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# Region Barchart
+p17 <- large_data %>% 
+  ggplot(aes(x=Region)) +
+  geom_bar(fill="#69b3a2") +
+  ggtitle("Region Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Item Type Barchart
+p18 <- large_data %>% 
+  ggplot(aes(x=Item.Type)) +
+  geom_bar(fill="#696fb3") +
+  ggtitle("Item Type Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15), 
+      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)
+    )
+
+# Sales Channel Barchart  
+p19 <- large_data %>% 
+  ggplot(aes(x=Sales.Channel)) +
+  geom_bar(fill="#b369ae") +
+  ggtitle("Sales Channel Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Order Priority Barchart  
+p20 <- large_data %>% 
+  ggplot(aes(x=Order.Priority)) +
+  geom_bar(fill="#77b369") +
+  ggtitle("Order Priority Bar Chart") +
+  scale_x_discrete(labels=c('Critical', 'High', 'Low', 'Medium')) +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+  
+# displaying the bar charts
+par(mfrow = c(3, 2))
+grid.arrange(p17,p18,p19,p20)
+```
+
+
+##### Now let's look at the categorical variables:
+
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# Region Barchart
+p17 <- large_data %>% 
+  ggplot(aes(x=Region)) +
+  geom_bar(fill="#69b3a2") +
+  
+  ggtitle("Region Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Item Type Barchart
+p18 <- large_data %>% 
+  ggplot(aes(x=Item.Type)) +
+  geom_bar(fill="#696fb3") +
+  ggtitle("Item Type Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15), 
+      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1)
+    )
+
+# Sales Channel Barchart  
+p19 <- large_data %>% 
+  ggplot(aes(x=Sales.Channel)) +
+  geom_bar(fill="#b369ae") +
+  ggtitle("Sales Channel Bar Chart") +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+
+# Order Priority Barchart  
+p20 <- large_data %>% 
+  ggplot(aes(x=Order.Priority)) +
+  geom_bar(fill="#77b369") +
+  ggtitle("Order Priority Bar Chart") +
+  scale_x_discrete(labels=c('Critical', 'High', 'Low', 'Medium')) +
+    theme(
+      plot.title = element_text(size = 15)
+    )
+  
+# displaying the bar charts
+par(mfrow = c(3, 2))
+grid.arrange(p17,p18,p19,p20)
+```
+
+
+### Data Preparation:
+
+Now that I've visualized the data it's time to make some changes to the variables. First, convert the categorical values into `as.factor` and convert the two columns containing dates to `as.Date` to be able to manipulate. I'll drop the `Order.ID` column as it is not needed with our model. Below are the results:
+
+```{r, echo=FALSE}
+# small data set
+
+# converting to as.factor
+small_data$Region <- as.factor(small_data$Region)
+small_data$Country <- as.factor(small_data$Country)
+small_data$Item.Type <- as.factor(small_data$Item.Type)
+small_data$Sales.Channel <- as.factor(small_data$Sales.Channel)
+small_data$Order.Priority <- as.factor(small_data$Order.Priority)
+
+# converting to as.Date
+small_data$Order.Date <- as.Date(small_data$Order.Date, "%m/%d/%Y")
+small_data$Ship.Date <- as.Date(small_data$Ship.Date, "%m/%d/%Y")
+
+# dropping "Order.ID" column
+small_data <- small_data[,-c(7)]
+
+# large data set
+
+# converting to as.factor
+large_data$Region <- as.factor(large_data$Region)
+large_data$Country <- as.factor(large_data$Country)
+large_data$Item.Type <- as.factor(large_data$Item.Type)
+large_data$Sales.Channel <- as.factor(large_data$Sales.Channel)
+large_data$Order.Priority <- as.factor(large_data$Order.Priority)
+
+# converting to as.Date
+large_data$Order.Date <- as.Date(large_data$Order.Date, "%m/%d/%Y")
+large_data$Ship.Date <- as.Date(large_data$Ship.Date, "%m/%d/%Y")
+
+# dropping "Order.ID" column
+large_data <- large_data[,-c(7)]
+```
+
+$~$
+
+**Small dataset:**
+```{r, echo=FALSE}
+kable(head(small_data))
+```
+
+$~$
+
+**Large dataset:**
+```{r, echo=FALSE}
+kable(head(large_data))
+```
+
+$~$
+
+
+
+### Model Building:
+
+First, we start by splitting both datasets into the standard ratio 75:25
+```{r, echo=FALSE}
+# Split the data into training and testing sets
+
+# create same random numbers for reproduction
+set.seed(111)
+
+# small data set splitting
+small_data_split <- initial_split(small_data, prop = 0.75)
+small_train <- training(small_data_split)
+small_test <- testing(small_data_split)
+#head(small_train)
+
+# large data set splitting
+large_data_split <- initial_split(large_data, prop = 0.75)
+large_train <- training(large_data_split)
+large_test <- testing(large_data_split)
+#head(large_train)
+```
+
+
+Now we can start the decision tree for the small data set using the `rpart` function and setting `Order.Priority` as our target variable followed by the rest of the variables. The results are below:
+
+```{r, echo=FALSE}
+# create the decision tree
+small_data_model <- rpart(Order.Priority ~ Region + Item.Type + Sales.Channel + Order.Date + 
+                          Ship.Date + Units.Sold + Total.Revenue + Total.Cost + Total.Profit,
+                        method = "class", data = small_train)
+
+# display the decision tree
+prp(small_data_model, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+To test the above model I used the `small_df` testing data to create the prediction table below:
+
+```{r, echo=FALSE}
+# creating our prediction
+small_data_prediction <- predict(small_data_model, small_test, type = "class")
+small_data_prediction <- table(small_test$Order.Priority, small_data_prediction)
+
+# display the table
+kable(small_data_prediction, align = "lcccc")
+```
+
+and checking the accuracy of the model using the predicted values alongside the `small_test` data which is 44%:
+```{r, echo=FALSE}
+# Testing the accuracy of the model
+kable(sum(diag(small_data_prediction)) / nrow(small_test), caption = "Accuracy", align = "l")
+```
+
+$~$
+
+Now that the `small_df` has been completed it's time to do the `large_df`. Same as before, create the decision tree with `Order.Priority` as my target variable. The results are below:
+
+```{r, echo=FALSE}
+# create the decision tree
+large_data_model <- rpart(Order.Priority ~ Region + Item.Type + Sales.Channel + Order.Date + 
+                          Ship.Date + Units.Sold + Total.Revenue + Total.Cost + Total.Profit,
+                        method = "class", data = large_train)
+
+# display the decision tree
+prp(large_data_model, extra=1, faclen=0,  nn=T, box.palette="Greens")
+```
+
+Testing the model against the `large_test` data:
+```{r, echo=FALSE}
+# creating our prediction
+large_data_prediction <- predict(large_data_model, large_test, type = "class")
+large_data_prediction <- table(large_test$Order.Priority, large_data_prediction)
+
+# display the table
+kable(large_data_prediction, align = "lcccc")
+```
+
+and now to check the accuracy of the model which is 25.7%:
+```{r, echo=FALSE}
+# Testing the accuracy of the model
+kable(sum(diag(large_data_prediction)) / nrow(large_test), caption = "Accuracy", align = "l")
+```
+
+$~$
+
+I did not expect the decision tree for the larger dataset to be this small along with the accuracy compared to the small dataset. After some research I found some parameters I could improve on the `rpart` function to improve the model and it's accuracy. Below are the results:
+```{r, echo=FALSE}
+# create the decision tree for the second model
+large_data_model2 <- rpart(Order.Priority ~ Region + Item.Type + Sales.Channel + Order.Date +
+                          Ship.Date + Units.Sold + Total.Revenue + Total.Cost + Total.Profit, 
+                        method = "class", data = large_train, 
+                        control= rpart.control(minsplit = 4, minbucket = round(5 / 3), maxdepth = 3, cp = 0))
+
+# display the decision tree of the second model
+prp(large_data_model2, extra=1, faclen=0,  nn=T, box.palette="Purple")
+```
+
+Now that I have a better decision tree I test the above model using our `large_data_model2` and `large_test` testing data:
+```{r, echo=FALSE}
+# creating our prediction for the second model
+large_data_prediction2 <- predict(large_data_model2, large_test, type = "class")
+large_data_prediction2 <- table(large_test$Order.Priority, large_data_prediction2)
+
+# display the table of the second model
+kable(large_data_prediction2, align = "lcccc")
+```
+
+
+and finally checking the accuracy of the second model; we see the accuracy is only 25.6% which is less than the first model. There wasn't much improvement in accuracy but we note the changes in the nodes of the decision trees.
+
+```{r, echo=FALSE}
+# Testing the accuracy of the second model
+kable(sum(diag(large_data_prediction2)) / nrow(large_test), caption = "Accuracy", align = "l")
+```
+
+$~$
+
