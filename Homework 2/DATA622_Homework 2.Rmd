@@ -1,0 +1,571 @@
+---
+title: "DATA622_Homework 2"
+output: 
+  html_document:
+    theme: cerulean
+    Highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+
+#### Name: Charles Ugiagbe.
+#### Date: 04/16/2024
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#### Load Require Libraries:
+
+Below are the libraries used to complete this assignment
+```{r message=FALSE, warning=FALSE, cache=FALSE, comment=FALSE, results=FALSE}
+library(tidyverse)
+library(skimr) 
+library(rpart) 
+library(rpart.plot) 
+library(knitr) 
+library(tidyr) 
+library(gridExtra) 
+library(stringr) 
+library(tidymodels) 
+library(corrplot) 
+library(randomForest) 
+library(caret) 
+```
+
+
+### The Data:
+
+For this assignment I have chosen to work with the Wine Quality data set. This data set can be accessed from (https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009)This data set contains two sub data sets for Red and White wine respectively. For the purposes of this analysis, I will be working with the Red wine sub set. The goal of this data set was to model the wine quality based on physicochemical test. It contains 12 attributes as listed below.
+
+Input variables (based on physicochemical tests):
+
+1 - fixed acidity
+
+2 - volatile acidity
+
+3 - citric acid
+
+4 - residual sugar
+
+5 - chlorides
+
+6 - free sulfur dioxide
+
+7 - total sulfur dioxide
+
+8 - density
+
+9 - pH
+
+10 - sulphates
+
+11 - alcohol
+
+Output variable (based on sensory data):
+
+12 - quality (score between 0 and 10)
+
+For this analysis, I will be attempting to model the quality of the wine based on a different combinations of attributes.
+
+$~$
+
+
+### Load Data:
+
+The data was downloaded from [Kaggle.com](https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009) and loaded into my github. The data wine+Quality contain two sub data; white and red wine. I decided to use the red wine data 
+
+```{r, loading data, echo = FALSE}
+wine_data <- read.csv("https://raw.githubusercontent.com/omocharly/DATA622/main/Homework%202/winequality-red.csv")
+```
+
+
+```{r, echo=FALSE, kable.opts=list(caption="data frame is now printed using `kable`.")}
+# display the dataset
+kable(head(wine_data), align = "l", table.attr = "style='width:30%;'")
+```
+
+
+
+
+### Data Exploration:
+
+Using the `skimr` library we can obtain a quick summary statistic of the dataset. It has 1599 values with 12 variables all numeric and no missing variables.
+```{r, echo=FALSE}
+# summary of the dataset
+skim(wine_data)
+```
+$~$
+
+
+
+##### Let's take a look at the distributions of the data set:
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# histogram for fixed.acidity
+p1 <- wine_data %>% 
+ggplot( aes(x=fixed.acidity)) +
+    geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fixed Acidity") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for volatile.acidity
+p2 <- wine_data %>% 
+ggplot( aes(x=volatile.acidity)) +
+    geom_histogram(fill="#69a0b3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Volatile Acidity") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for citric.acid
+p3 <- wine_data %>% 
+ggplot( aes(x=citric.acid)) +
+    geom_histogram(fill="#696fb3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Citric Acid") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for residual.sugar
+p4 <- wine_data %>% 
+ggplot( aes(x=residual.sugar)) +
+    geom_histogram(fill="#b369ae", color="#e9ecef", alpha=0.8) +
+    ggtitle("Residual Sugar") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for chlorides
+p5 <- wine_data %>% 
+ggplot( aes(x=chlorides)) +
+    geom_histogram(fill="#77b369", color="#e9ecef", alpha=0.8) +
+    ggtitle("Chlorides") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for free.sulfur.dioxide
+p6 <- wine_data %>% 
+ggplot( aes(x=free.sulfur.dioxide)) +
+    geom_histogram(fill="#b37e69", color="#e9ecef", alpha=0.8) +
+    ggtitle("Free Sulfur Dioxide") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for total.sulfur.dioxide
+p7 <- wine_data %>% 
+ggplot( aes(x=total.sulfur.dioxide)) +
+    geom_histogram(fill="#c96976", color="#e9ecef", alpha=0.8) +
+    ggtitle("Total Sulfur Dioxide") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for density
+p8 <- wine_data %>% 
+ggplot( aes(x=density)) +
+    geom_histogram(fill="#ffbe8c", color="#e9ecef", alpha=0.8) +
+    ggtitle("Density") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for pH
+p9 <- wine_data %>% 
+ggplot( aes(x=pH)) +
+    geom_histogram(fill="#ecff8c", color="#e9ecef", alpha=0.8) +
+    ggtitle("pH") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for sulphates
+p10 <- wine_data %>% 
+ggplot( aes(x=sulphates)) +
+    geom_histogram(fill="#8cffcb", color="#e9ecef", alpha=0.8) +
+    ggtitle("Sulphates") +
+  
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for alcohol
+p11 <- wine_data %>% 
+ggplot( aes(x=alcohol)) +
+    geom_histogram(fill="#D0CECE", color="#e9ecef", alpha=0.8) +
+    ggtitle("Alcohol") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for quality
+p12 <- wine_data %>% 
+ggplot( aes(x=quality)) +
+    geom_histogram(fill="#CB747E", color="#e9ecef", alpha=0.8) +
+    ggtitle("Quality") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 4))
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12)
+```
+
+
+##### Some notes on the visualizations above: 
+
+* Most of the distributions for the variables are right skewed with the exception of Density and pH
+* Density and pH have more of a normal distribution
+* Citric Acid has a more uniform distribution
+
+$~$
+
+##### Let's check if there's any relationships between the variables against the quality of the wine:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=12}
+
+# visualization of fixed acidity and the average of quality of wine
+p13 <- wine_data %>%
+dplyr::group_by(fixed.acidity) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = fixed.acidity, y = average_quality)) +
+geom_point(color = "#69b3a2") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Fixed Acidity", y = "Average Quality", title = "Relationship Between Fixed Acidity and Wine Quality")
+
+# visualization of volatile acidity and the average of quality of wine
+p14 <- wine_data %>%
+dplyr::group_by(volatile.acidity) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = volatile.acidity, y = average_quality)) +
+geom_point(color = "#69a0b3") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Volatile Acidity", y = "Average Quality", title = "Relationship Between Volatile Acidity and Wine Quality")
+
+# visualization of citric acid and the average of quality of wine
+p15 <- wine_data %>%
+dplyr::group_by(citric.acid) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = citric.acid, y = average_quality)) +
+geom_point(color = "#696fb3") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Citric Acid", y = "Average Quality", title = "Relationship Between Citric Acid and Wine Quality")
+
+# visualization of residual sugar and the average of quality of wine
+p16 <- wine_data %>%
+dplyr::group_by(residual.sugar) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = residual.sugar, y = average_quality)) +
+geom_point(color = "#b369ae") +
+geom_smooth(method = "lm", color = "black") +
+ 
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Residual Sugar", y = "Average Quality", title = "Relationship Between Residual Sugar and Wine Quality")
+
+# visualization between chlorides and average quality of wine
+p17 <- wine_data %>%
+     dplyr::group_by(chlorides) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = chlorides, y = average_quality)) +
+  geom_point(color = "#77b369") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Chlorides", y = "Average Quality", title = "Relationship Between Chloride Content and Wine Quality")
+
+# visualization between sulfur dioxide and average quality of wine
+p18 <- wine_data %>%
+     dplyr::group_by(free.sulfur.dioxide) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = free.sulfur.dioxide, y = average_quality)) +
+  geom_point(color = "#b37e69") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Free Sulfur Dixoide", y = "Average Quality", title = "Relationship Between Impact of Free Sulfur Dioxide on Wine Quality")
+
+# visualization between sulfur dioxide and average quality of wine
+p19 <- wine_data %>%
+     dplyr::group_by(total.sulfur.dioxide) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = total.sulfur.dioxide, y = average_quality)) +
+  geom_point(color = "#c96976") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Total Sulfur Dixoide", y = "Average Quality", 
+       title = "Relationship Between Impact of Total Sulfur Dioxide on Wine Quality")
+
+# visualization between density and average quality of wine
+p20 <- wine_data %>%
+     dplyr::group_by(density) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = density, y = average_quality)) +
+  geom_point(color = "#f25c05") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Density", y = "Average Quality", title = "Relationship Between Density and Wine Quality")
+
+# visualization between pH and average quality of wine
+p21 <- wine_data %>%
+     dplyr::group_by(pH) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = pH, y = average_quality)) +
+  geom_point(color = "#0627bd") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "pH", y = "Average Quality", title = "Relationship Between Effect of pH on Wine Quality")
+
+# visualization between pH and average quality of wine
+p22 <- wine_data %>%
+     dplyr::group_by(sulphates) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = sulphates, y = average_quality)) +
+  geom_point(color = "#cf2775") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Sulphates", y = "Average Quality", title = "Relationship Between Sulphates and Wine Quality")
+
+# visualization of alcohol content and the average of quality of wine
+p23 <- wine_data %>%
+dplyr::group_by(alcohol) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = alcohol, y = average_quality, color = alcohol)) +
+geom_point(color = "#026312") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Alcohol Content", y = "Average Quality", title = "Relationship Between Alcohol Content and Wine Quality")
+
+# displaying the scatterplot
+par(mfrow = c(3, 2))
+grid.arrange(p13,p14,p15,p16,p17)
+
+par(mfrow = c(3,2))
+grid.arrange(p18,p19,p20,p21,p22,p23)
+```
+
+##### Key takeaways from the scatterplot:
+
+* There is no correlation between a wine's residual sugar and its quality rating.
+
+* There's no visible relationship between chloride content, free sulfur dioxide, and wine quality.
+
+* Wines containing higher levels of total sulfur dioxide are not consistently rated as low quality wines and don't provide a reliable indicator of wine quality.
+
+* There is a slight negative relationship between a wine's density and it's quality rating. Higher density wines tend to have a slightly lower quality rating.
+
+* There is very little to no correlation between pH and wine quality.
+
+* There is a slight positive relationship between alcohol content and wine quality. The higher the alcohol content, the higher the average of the wine quality.
+
+$~$
+
+### Data Preparation:
+
+Now that I've visualized the data I want to do one minor change to the columns. Most of the columns have a "." and I'm changing it to an "_". Since there's no missing values, and all values are already numeric, there's not much to prepare the data.
+
+```{r, echo=FALSE, warning=FALSE}
+# change the names of the columns
+oldnames = c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar", "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide", "density", "pH", "sulphates","alcohol", "quality")
+newnames = c("Fixed_Acidity", "Volatile_Acidity", "Citric_Acid", "Residual_Sugar", "Chlorides", "Free_Sulfur_Dioxide", "Total_Sulfur_Dioxide", "Density", "pH", "Sulphates", "Alcohol", "Quality")
+
+# input the change
+wine_df2 <- wine_data %>% 
+  rename_at(vars(oldnames), ~ newnames)
+
+# display the dataset
+kable(head(wine_df2), align = "l", table.attr = "style='width:30%;'")
+```
+
+$~$
+
+The correlation plot below is measuring the degree of linear relationship within the dataset. The values in which this is measured falls between -1 and +1, with +1 being a strong positive correlation and -1 a strong negative correlation. The darker the dot the more strongly correlated (whether positive or negative). From the results below, there's a strong positive correlation with citric acid, density and fixed acidity as well as free sulfur dioxide and total sulfur dioxide. Negative strong correlations are only seen with fixed acidity and pH, citric acid and volatile acidy, citric acid and pH, and density and alcohol.
+
+```{r,echo=FALSE}
+# Correlation matrix
+cor_matrix <- cor(wine_df2[, -ncol(wine_df2)])
+
+# Visualize the correlation matrix using corrplot
+corrplot(cor_matrix, method = "color", type = "lower", tl.col = "black")
+```
+
+
+$~$
+
+### Model Building:
+
+We have to create two decision tree models and one random forest model. The first decision tree is between `Quality` and the whole data set. I started off by doing the cross validations setup by using the 75:25 ratio. After that we then created the decision tree seen below:
+
+```{r, echo=FALSE}
+# create some random numbers for reproduction
+set.seed(2)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(wine_df2$Quality, p=.75, list = F)
+wine_train <- wine_df2[inTrain,]
+wine_valid <- wine_df2[-inTrain,]
+```
+
+```{r, echo=FALSE}
+# create the decision tree
+rpart_model <- rpart(Quality ~ ., method = "class", data = wine_train)
+
+# display the decision tree
+prp(rpart_model, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+Then we test the model using the validation dataset to create the prediction table below:
+```{r, echo=FALSE}
+# creating our prediction
+wine_prediction <- predict(rpart_model, wine_valid, type = "class")
+wine_prediction <- table(wine_valid$Quality, wine_prediction)
+
+# display the table
+kable(wine_prediction, align = "lcccc")
+```
+
+and we check the accuracy which is 57.4%:
+```{r, echo=FALSE}
+# Testing the accuracy of the model
+kable(sum(diag(wine_prediction)) / nrow(wine_valid), caption = "Accuracy", align = "l")
+```
+
+$~$
+
+#### Switching Variables:
+
+For the second decision tree I will be looking at the relationship between `Quality` and `Density`, `pH`, and `Alcohol`. I created a new dataset from the original choosing only the variables above. Following the same step to create the first decision tree, we create the second:
+
+```{r, echo=FALSE}
+# creating new dataset from the original
+wine2 <- wine_df2 %>%
+  select(Quality, Density, pH, Alcohol)
+```
+
+```{r, echo=FALSE}
+# create some random number for reproduction
+set.seed(3)
+
+# Cross Validation Set-up
+inTrain2 <- createDataPartition(wine2$Quality, p=.75, list = F)
+wine_train2 <- wine2[inTrain2,]
+wine_valid2 <- wine2[-inTrain2,]
+```
+
+```{r, echo=FALSE}
+# create the decision tree
+rpart_model2 <- rpart(Quality ~ ., method = "class", data = wine_train2)
+
+# display the decision tree
+prp(rpart_model2, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+Same as before, we create the prediciton table:
+```{r, echo=FALSE}
+# creating our prediction
+wine_prediction2 <- predict(rpart_model2, wine_valid2, type = "class")
+wine_prediction2 <- table(wine_valid2$Quality, wine_prediction2)
+
+# display the table
+kable(wine_prediction2, align = "lcccc")
+```
+
+and now for the accuracy of 56.8% which is lower than the first decision tree:
+```{r, echo=FALSE}
+# Testing the accuracy of the model
+kable(sum(diag(wine_prediction2)) / nrow(wine_valid2), caption = "Accuracy", align = "l")
+```
+
+
+
+$~$
+
+#### Random Forest
+
+A Random Forest is an ensemble learning technique in machine learning that combines multiple decision trees to make accurate predictions. It works by creating a collection of decision trees, each trained on a bootstrapped dataset (randomly sampled with replacement) from the original data and considering only a subset of features at each split. The final prediction in a classification task is determined by a majority vote of the individual trees, while in a regression task, it's an average of their predictions. Random Forests are valued for their high accuracy, resistance to overfitting, and the ability to assess feature importance.
+
+For the random forest model, I am choosing the first decision tree as it had a higher accuracy compared to the second model. First we create the random forest model using the training data and then applying it to the validation data. 
+
+```{r, echo=FALSE}
+# create random forest model using the training data
+rf_model <- randomForest(Quality~., wine_train)
+rf_model
+```
+
+From the random forest model we created, we can create a variable importance plot which shows each variable and how important it is in classifying the data. From the plot below we note that `Alcohol`, `Sulphates` and `Volatile_Acidity` are among the top variables that play a significant role in the classification of the quality of the wine.
+
+```{r, echo=FALSE}
+# plot for rf_model
+varImpPlot(rf_model)
+```
+
+Numerically, we can see the same result below:
+```{r, echo=FALSE}
+# table for rf_model
+varImp(rf_model) %>% kable()
+```
+
+
+Lastly, I perform the random forest on the validation data to check the accuracy of the model with the results below:
+
+```{r}
+# create some random number for reproduction 
+set.seed(4)
+
+# creating random forest model using the validation data
+rf_pred <- predict(rf_model,newdata = wine_valid)
+
+# confusion matrix output
+#confusionMatrix(rf_pred, wine_valid$Quality)
+```
+
+
+$~$
+
+### Conclusion:
+
+To alter the popular idea of decision tree, especially considering their drawback and instances where they've gone wrong, you can adopt various strategies when using a decision tree to address real problems. Acknowledge their limitations and be transparent about what they can and cannot do. Focus on data quality and preprocessing to ensure the best input. Implement techniques to control overfitting, such as pruning or ensembling. Choose relevant features and maintain interpretability, explaining the tree's decisions transparently. Continuously monitor and update the model, document the process, and conduct sensitivity analyses. Additionally, consider ethical aspects and educate stakeholders on the strengths and weaknesses of decision trees, ultimately promoting a more informed and realistic perspective on their utility. However, like any tool, they can have limitations and drawbacks. In this homework, we were able to correct ther error of ramdom forest.
+
+
+
