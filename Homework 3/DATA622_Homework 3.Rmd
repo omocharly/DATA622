@@ -1,0 +1,855 @@
+---
+title: "DATA622_Homework 3"
+output: 
+  html_document:
+    theme: cerulean
+    Highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+#### Name: Charles Ugiagbe.
+#### Date: 05/11/2024
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+$~$
+
+####    Assignment Question
+
+* Read the following articles:
+  * https://www.hindawi.com/journals/complexity/2021/5550344/
+  * https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8137961/
+* Search for academic content (at least 3 articles) that compare the use of decision trees vs SVMs in your current area of expertise.
+* Perform an analysis of the dataset used in Homework #2 using the SVM algorithm.
+* Compare the results with the results from previous homework.
+* Answer questions, such as:
+  * Which algorithm is recommended to get more accurate results?
+  * Is it better for classification or regression scenarios?
+  * Do you agree with the recommendations?
+  * Why?
+
+$~$
+
+#### Load Libraries:
+Below are the libraries used to complete this assignment
+```{r message=FALSE, warning=FALSE, cache=FALSE, comment=FALSE, results=FALSE}
+library(tidyverse) 
+library(skimr) 
+library(rpart) 
+library(rpart.plot) 
+library(knitr) 
+library(tidyr) 
+library(ggplot2) 
+library(gridExtra) 
+library(stringr) 
+library(tidymodels) 
+library(corrplot) 
+library(randomForest) 
+library(caret) 
+library("e1071") 
+```
+
+$~$
+
+### Article Review
+
+* https://www.hindawi.com/journals/complexity/2021/5550344/
+
+* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8137961/
+
+The both articles seek to predict whether there is the presence of covid-19 in the body of a patient or not by using machine learning algorithms. The Armir Ahmad paper relies on decision trees to predict the presence of Covid-19, while the Soham Guhathakurata paper relies on support vector machines (SVMs) to predict the presence of the disease. The first articles investigate the application of decision tree for the selection of parameters; which is very robust in addressing the imbalance between the positive and negative covid-19 cases.
+The second articles from Guhathakurata seek to predict if the patient is infected with covid-19  by using the support vector machine (SVM). The svm uses classification mean to detect the various level of the patient's condition in no infection, mild infection, and serious infection categories.
+
+Also, Guhathakurata  works with a linear kernel. It’s possible their 87% accuracy figure could be improved upon by using a different SVM kernel function. In addition, accuracy won’t be a great evaluation metric for this classification task since Covid data is very likely to be significantly imbalanced (most test cases will be negative, and a naive classifier could simply predict the baseline rate of positive cases). Both studies had similar results in terms of accuracy, recall, and F-1 scores, with Guhathakurata improving precision for their SVM classifier.
+
+
+### Academic Content: (3 other articles)
+
+**I worked in a law Agency where I help in analyzing arrest and criminal data so as to monitor trends and make prediction.**
+
+* [Crime Prediction Using Decision Tree (JT) Classification Algorithm](https://www.researchgate.net/publication/316960839_Crime_Prediction_Using_Decision_Tree_J48_Classification_Algorithm)
+
+With the increase of crimes, law enforcement agencies are continuing to demand advanced systems and new methods to improve crime analytics and better protect their communities. Data mining is an approach to discover hidden relationships among data by using artificial intelligence methods of which decision tree (JT) is inclusive. Decision tree as a machine learning helps to uncover relationship and pattern that exist in criminal data. This study considered the development of crime prediction prototype model using decision tree (JT) algorithm because it has been considered as the most efficient machine learning algorithm for prediction of crime data as described in the related literature. From the experimental results, JT algorithm predicted the unknown category of crime data to the accuracy of 94.25287% which is fair enough for the system to be relied on for prediction of future crimes.
+
+
+* [EFFECTIVENESS OF SUPPORT VECTOR MACHINE FOR CRIME HOT-SPOTS PREDICTION](https://www.tandfonline.com/doi/full/10.1080/08839510802028405)
+
+* [Crime Hotspot Identification using SVM in Machine Learning](https://ieeexplore.ieee.org/document/10104689)
+
+These two articles present a support vector machine (SVM)-based approach to predict the location of crime hot spots as an alternative to existing modeling approaches. Support vector machine forms the new generation of machine-learning techniques used to find optimal separability between classes within datasets. We also compared SVM with a neural network-based approach and spatial auto-regression-based approach. An experiment on two different spatial datasets is used in the first article to demonstrate that the former approach performs slightly better and the latter one gives reasonable results.
+The SVM algorithm in machine learning utilizes crime mapping as an important area of research of crime analysis as it allows visualizing, analyzing and tracking high crime areas or patterns. Furthermore, in this study, we provide a general framework to customize the spatial data classification task for other spatial domains that have datasets similar to the analyzed crime datasets.
+
+$~$
+
+
+
+
+#### Load Data:
+The data used in homework 2 was downloaded from [Kaggle.com](https://www.kaggle.com/datasets/uciml/red-wine-quality-cortez-et-al-2009) and loaded into my github. The data wine+Quality contain two sub data; white and red wine. I decided to use the red wine data
+
+```{r, loading data, echo = FALSE}
+wine_data <- read.csv("https://raw.githubusercontent.com/omocharly/DATA622/main/Homework%202/winequality-red.csv")
+```
+
+```{r, echo=FALSE, kable.opts=list(caption="data frame is now printed using `kable`.")}
+# display the dataset
+kable(head(wine_data), align = "l", table.attr = "style='width:30%;'")
+```
+
+$~$
+
+### The Data:
+
+Based on the description from Kaggle, the two datasets are related to red and white variants of the Portuguese "Vinho Verde" wine. For more details, consult: http://www.vinhoverde.pt/en/ or the reference [Cortez et al., 2009].  Due to privacy and logistic issues, only physicochemical (inputs) and sensory (the output) variables are available (e.g. there is no data about grape types, wine brand, wine selling price, etc.).
+
+These datasets can be viewed as classification or regression tasks.  The classes are ordered and not balanced (e.g. there are many more normal wines than excellent or poor ones). Outlier detection algorithms could be used to detect the few excellent or poor wines. Also, we are not sure if all input variables are relevant. So it could be interesting to test feature selection methods.
+
+Input variables (based on physicochemical tests):
+
+1 - fixed acidity
+
+2 - volatile acidity
+
+3 - citric acid
+
+4 - residual sugar
+
+5 - chlorides
+
+6 - free sulfur dioxide
+
+7 - total sulfur dioxide
+
+8 - density
+
+9 - pH
+
+10 - sulphates
+
+11 - alcohol
+
+Output variable (based on sensory data):
+
+12 - quality (score between 0 and 10)
+
+$~$
+
+
+### Data Exploration:
+
+Using the `skimr` library we can obtain a quick summary statistic of the dataset. It has 1599 values with 12 variables all numeric and no missing variables.
+```{r, echo=FALSE}
+# summary of the dataset
+skim(wine_data)
+```
+$~$
+
+
+##### Let's take a look at the distributions of the data set:
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+# histogram for fixed.acidity
+p1 <- wine_data %>% 
+ggplot( aes(x=fixed.acidity)) +
+    geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fixed Acidity") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for volatile.acidity
+p2 <- wine_data %>% 
+ggplot( aes(x=volatile.acidity)) +
+    geom_histogram(fill="#69a0b3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Volatile Acidity") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for citric.acid
+p3 <- wine_data %>% 
+ggplot( aes(x=citric.acid)) +
+    geom_histogram(fill="#696fb3", color="#e9ecef", alpha=0.8) +
+    ggtitle("Citric Acid") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for residual.sugar
+p4 <- wine_data %>% 
+ggplot( aes(x=residual.sugar)) +
+    geom_histogram(fill="#b369ae", color="#e9ecef", alpha=0.8) +
+    ggtitle("Residual Sugar") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for chlorides
+p5 <- wine_data %>% 
+ggplot( aes(x=chlorides)) +
+    geom_histogram(fill="#77b369", color="#e9ecef", alpha=0.8) +
+    ggtitle("Chlorides") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for free.sulfur.dioxide
+p6 <- wine_data %>% 
+ggplot( aes(x=free.sulfur.dioxide)) +
+    geom_histogram(fill="#b37e69", color="#e9ecef", alpha=0.8) +
+    ggtitle("Free Sulfur Dioxide") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for total.sulfur.dioxide
+p7 <- wine_data %>% 
+ggplot( aes(x=total.sulfur.dioxide)) +
+    geom_histogram(fill="#c96976", color="#e9ecef", alpha=0.8) +
+    ggtitle("Total Sulfur Dioxide") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for density
+p8 <- wine_data %>% 
+ggplot( aes(x=density)) +
+    geom_histogram(fill="#ffbe8c", color="#e9ecef", alpha=0.8) +
+    ggtitle("Density") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for pH
+p9 <- wine_data %>% 
+ggplot( aes(x=pH)) +
+    geom_histogram(fill="#ecff8c", color="#e9ecef", alpha=0.8) +
+    ggtitle("pH") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for sulphates
+p10 <- wine_data %>% 
+ggplot( aes(x=sulphates)) +
+    geom_histogram(fill="#8cffcb", color="#e9ecef", alpha=0.8) +
+    ggtitle("Sulphates") +
+  
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for alcohol
+p11 <- wine_data %>% 
+ggplot( aes(x=alcohol)) +
+    geom_histogram(fill="#D0CECE", color="#e9ecef", alpha=0.8) +
+    ggtitle("Alcohol") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# histogram for quality
+p12 <- wine_data %>% 
+ggplot( aes(x=quality)) +
+    geom_histogram(fill="#CB747E", color="#e9ecef", alpha=0.8) +
+    ggtitle("Quality") +
+    
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 4))
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12)
+```
+
+
+##### Some notes on the visualizations above: 
+
+* Most of the distributions for the variables are right skewed with the exception of Density and pH
+* Density and pH have more of a normal distribution
+* Citric Acid has a more uniform distribution
+
+$~$
+
+
+##### Let's check if there's any relationships between the variables against the quality of the wine:
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=12, fig.height=12}
+
+# visualization of fixed acidity and the average of quality of wine
+p13 <- wine_data %>%
+dplyr::group_by(fixed.acidity) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = fixed.acidity, y = average_quality)) +
+geom_point(color = "#69b3a2") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Fixed Acidity", y = "Average Quality", title = "Relationship Between Fixed Acidity and Wine Quality")
+
+# visualization of volatile acidity and the average of quality of wine
+p14 <- wine_data %>%
+dplyr::group_by(volatile.acidity) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = volatile.acidity, y = average_quality)) +
+geom_point(color = "#69a0b3") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Volatile Acidity", y = "Average Quality", title = "Relationship Between Volatile Acidity and Wine Quality")
+
+# visualization of citric acid and the average of quality of wine
+p15 <- wine_data %>%
+dplyr::group_by(citric.acid) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = citric.acid, y = average_quality)) +
+geom_point(color = "#696fb3") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Citric Acid", y = "Average Quality", title = "Relationship Between Citric Acid and Wine Quality")
+
+# visualization of residual sugar and the average of quality of wine
+p16 <- wine_data %>%
+dplyr::group_by(residual.sugar) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = residual.sugar, y = average_quality)) +
+geom_point(color = "#b369ae") +
+geom_smooth(method = "lm", color = "black") +
+ 
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Residual Sugar", y = "Average Quality", title = "Relationship Between Residual Sugar and Wine Quality")
+
+# visualization between chlorides and average quality of wine
+p17 <- wine_data %>%
+     dplyr::group_by(chlorides) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = chlorides, y = average_quality)) +
+  geom_point(color = "#77b369") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Chlorides", y = "Average Quality", title = "Relationship Between Chloride Content and Wine Quality")
+
+# visualization between sulfur dioxide and average quality of wine
+p18 <- wine_data %>%
+     dplyr::group_by(free.sulfur.dioxide) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = free.sulfur.dioxide, y = average_quality)) +
+  geom_point(color = "#b37e69") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Free Sulfur Dixoide", y = "Average Quality", title = "Relationship Between Impact of Free Sulfur Dioxide on Wine Quality")
+
+# visualization between sulfur dioxide and average quality of wine
+p19 <- wine_data %>%
+     dplyr::group_by(total.sulfur.dioxide) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = total.sulfur.dioxide, y = average_quality)) +
+  geom_point(color = "#c96976") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Total Sulfur Dixoide", y = "Average Quality", 
+       title = "Relationship Between Impact of Total Sulfur Dioxide on Wine Quality")
+
+# visualization between density and average quality of wine
+p20 <- wine_data %>%
+     dplyr::group_by(density) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = density, y = average_quality)) +
+  geom_point(color = "#f25c05") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Density", y = "Average Quality", title = "Relationship Between Density and Wine Quality")
+
+# visualization between pH and average quality of wine
+p21 <- wine_data %>%
+     dplyr::group_by(pH) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = pH, y = average_quality)) +
+  geom_point(color = "#0627bd") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "pH", y = "Average Quality", title = "Relationship Between Effect of pH on Wine Quality")
+
+# visualization between pH and average quality of wine
+p22 <- wine_data %>%
+     dplyr::group_by(sulphates) %>%
+     dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot(aes(x = sulphates, y = average_quality)) +
+  geom_point(color = "#cf2775") +
+  geom_smooth(method = "lm", color = "black") +
+    
+      theme(
+        plot.title = element_text(size=13)
+     ) +
+  labs(x = "Sulphates", y = "Average Quality", title = "Relationship Between Sulphates and Wine Quality")
+
+# visualization of alcohol content and the average of quality of wine
+p23 <- wine_data %>%
+dplyr::group_by(alcohol) %>%
+dplyr::summarize(average_quality = mean(quality)) %>%
+ggplot( aes(x = alcohol, y = average_quality, color = alcohol)) +
+geom_point(color = "#026312") +
+geom_smooth(method = "lm", color = "black") +
+  
+    theme(
+      plot.title = element_text(size=13)
+    ) +
+  labs(x = "Alcohol Content", y = "Average Quality", title = "Relationship Between Alcohol Content and Wine Quality")
+
+# displaying the scatterplot
+par(mfrow = c(3, 2))
+grid.arrange(p13,p14,p15,p16,p17)
+
+par(mfrow = c(3,2))
+grid.arrange(p18,p19,p20,p21,p22,p23)
+```
+
+
+##### Key takeaways from the scatterplot:
+
+* There is no correlation between a wine's residual sugar and its quality rating.
+
+* There's no visible relationship between chloride content, free sulfur dioxide, and wine quality.
+
+* Wines containing higher levels of total sulfur dioxide are not consistently rated as low quality wines and don't provide a reliable indicator of wine quality.
+
+* There is a slight negative relationship between a wine's density and it's quality rating. Higher density wines tend to have a slightly lower quality rating.
+
+* There is very little to no correlation between pH and wine quality.
+
+* There is a slight positive relationship between alcohol content and wine quality. The higher the alcohol content, the higher the average of the wine quality.
+
+$~$
+
+### Data Preparation:
+
+Now that I've visualized the data I want to do one minor change to the columns. Most of the columns have a "." and I'm changing it to an "_". I'll also be converting the column `Quality` to factor. Since there's no missing values there's not much more to prepare the data.
+
+```{r, echo=FALSE, warning=FALSE}
+# change the names of the columns
+oldnames = c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar", "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide", "density", "pH", "sulphates","alcohol", "quality")
+newnames = c("Fixed_Acidity", "Volatile_Acidity", "Citric_Acid", "Residual_Sugar", "Chlorides", "Free_Sulfur_Dioxide", "Total_Sulfur_Dioxide", "Density", "pH", "Sulphates", "Alcohol", "Quality")
+
+# input the change
+wine_df2 <- wine_data %>% 
+  rename_at(vars(oldnames), ~ newnames)
+
+# converting column 'Quality' to factor
+wine_df2$Quality <- as.factor(wine_df2$Quality)
+
+# display the dataset
+kable(head(wine_df2), align = "l", table.attr = "style='width:30%;'")
+```
+
+$~$
+
+The correlation plot below is measuring the degree of linear relationship within the dataset. The values in which this is measured falls between -1 and +1, with +1 being a strong positive correlation and -1 a strong negative correlation. The darker the dot the more strongly correlated (whether positive or negative). From the results below, there's a strong positive correlation with citric acid, density and fixed acidity as well as free sulfur dioxide and total sulfur dioxide. Negative strong correlations are only seen with fixed acidity and pH, citric acid and volatile acidy, citric acid and pH, and density and alcohol.
+
+```{r,echo=FALSE}
+# Correlation matrix
+cor_matrix <- cor(wine_df2[, -ncol(wine_df2)])
+
+# Visualize the correlation matrix using corrplot
+corrplot(cor_matrix, method = "color", type = "lower", tl.col = "black")
+```
+
+
+$~$
+
+### Model Building Decision Tree and Random Forest:
+
+Building from the previous homework I am recreating the Decision Trees and Random Forest models. If you recall, I had some issues displaying the confusion matrix for both models so I have improved on this to hopefully get a better accuracy of the models and be able to compare it with the support vector machines (SVM).
+
+The first decision tree is between `Quality` and the whole data set and started off by doing the cross validations setup by using the 75:25 ratio. Below is the decision tree created:
+
+```{r, echo=FALSE}
+# create some random numbers for reproduction
+set.seed(3)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(wine_df2$Quality, p=.75, list = F)
+train <- wine_df2[inTrain,]
+valid <- wine_df2[-inTrain,]
+
+# create the decision tree
+rpart_model <- rpart(Quality ~ ., method = "class", data = train)
+
+# display the decision tree
+prp(rpart_model, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+
+Then we test the model using the validation dataset. The results are seen in the confusion matrix and statistics output:
+```{r, echo=FALSE}
+# # creating our prediction
+rpart_result <- predict(rpart_model, newdata = valid[, !colnames(valid) %in% "Quality"], type = 'class')
+
+# confusion matrix
+confusionMatrix(rpart_result, valid$Quality)
+```
+
+Let's look at the contribution of each variable:
+```{r, echo=FALSE}
+# contribution of variables
+varImp(rpart_model) %>% kable()
+```
+
+
+and we check the accuracy which is 58% (previous accuracy was 57.4%):
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_rpart <- confusionMatrix(rpart_result, valid$Quality)$overall["Accuracy"]
+kable(accuracy_rpart, align = "l")
+```
+
+$~$
+
+#### Switching Variables:
+
+We were also asked to switch variables and create a second decision tree. I looked at the relationship between `Quality` and `Density`, `pH`, and `Alcohol` that yield an accuracy of 57%. Upon making changes this accuracy went down. Below is the output of this decision tree. 
+
+```{r, echo=FALSE}
+# creating the second dataset from the original
+wine2 <- wine_df2 %>%
+  select(Quality, Density, pH, Alcohol)
+
+# create some random number for reproduction
+set.seed(4)
+
+# Cross Validation Set-up
+inTrain2 <- createDataPartition(wine2$Quality, p=.75, list = F)
+train2 <- wine2[inTrain2,]
+valid2 <- wine2[-inTrain2,]
+
+# create the decision tree
+rpart_model2 <- rpart(Quality ~ ., method = "class", data = train2)
+
+# display the decision tree
+prp(rpart_model2, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+
+
+Same as before, we create the confusion matrix and statistics for the second decision tree:
+```{r, echo=FALSE}
+# creating our prediction
+rpart_result2 <- predict(rpart_model2, newdata = valid2[, !colnames(valid2) %in% "Quality"], type = 'class')
+
+# creating the second confusion matrix
+confusionMatrix(rpart_result2, valid2$Quality)
+```
+
+
+Let's look at the contribution of each variable for the second dataset:
+```{r, echo=FALSE}
+# contribution of variables
+varImp(rpart_model2) %>% kable()
+```
+
+
+and now for the accuracy of 56.4% which is lower than the first decision tree:
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_rpart2 <- confusionMatrix(rpart_result2, valid2$Quality)$overall["Accuracy"]
+kable(accuracy_rpart2, align = "l")
+```
+
+$~$
+
+#### Switching Variables Again
+
+From the variable contribution in the first decision tree, I decided to create a third decision tree composed of `Quality`, `Alcohol`, `Sulphates`, `Volatile_Acidity`, and `Total_Sulfur_Dioxide` and view the changes in the model accuracy. Same as before, I created a new datasets from the original choosing only the variables above and followed the same steps to create this final decision tree.
+
+```{r, echo=FALSE}
+# creating the third dataset from the original
+wine3 <- wine_df2 %>%
+  select(Quality, Alcohol, Sulphates, Volatile_Acidity, Total_Sulfur_Dioxide)
+
+# create some random number for reproduction
+set.seed(5)
+
+# Cross Validation Set-up
+inTrain3 <- createDataPartition(wine3$Quality, p=.75, list = F)
+train3 <- wine3[inTrain3,]
+valid3 <- wine3[-inTrain3,]
+
+# create the decision tree
+rpart_model3 <- rpart(Quality ~ ., method = "class", data = train3)
+
+# display the decision tree
+prp(rpart_model3, extra=1, faclen=0,  nn=T, box.palette="Blues")
+```
+
+
+The confusion matrix and statistics for the third decision tree:
+```{r, echo=FALSE}
+# creating our prediction
+rpart_result3 <- predict(rpart_model3, newdata = valid3[, !colnames(valid3) %in% "Quality"], type = 'class')
+
+# creating the third confusion matrix
+confusionMatrix(rpart_result3, valid3$Quality)
+```
+
+Let's look at the contribution of each variable for the third dataset:
+```{r, echo=FALSE}
+# contribution of variables
+varImp(rpart_model3) %>% kable()
+```
+
+
+and now for the accuracy of 58.4% which is higher than the first and second decision tree models:
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_rpart3 <- confusionMatrix(rpart_result3, valid3$Quality)$overall["Accuracy"]
+kable(accuracy_rpart3, align = "l")
+```
+
+$~$
+
+#### Random Forest
+
+For a second recap: we now create a random forest model for the dataset. A Random Forest is an ensemble learning technique in machine learning that combines multiple decision trees to make accurate predictions. It works by creating a collection of decision trees, each trained on a bootstrapped dataset (randomly sampled with replacement) from the original data and considering only a subset of features at each split. The final prediction in a classification task is determined by a majority vote of the individual trees, while in a regression task, it's an average of their predictions. Random Forests are valued for their high accuracy, resistance to overfitting, and the ability to assess feature importance.
+
+For the random forest model, I first chose the first decision tree as it had a higher accuracy compared to the second model. Create the random forest model using the training data and then applying it to the validation data. A new addition to this model is that now I will create a second random forest model with the third decision tree model and make the comparison. Below are the results:
+
+```{r, echo=FALSE}
+# create some random number for reproduction 
+set.seed(6)
+
+# create random forest model using the training data
+rf_model <- randomForest(Quality~., train)
+rf_model
+
+# prediction
+rf_result <- predict(rf_model, newdata = valid[, !colnames(valid) %in% "Quality"])
+
+# confusion matrix
+confusionMatrix(rf_result, valid$Quality)
+```
+
+From the random forest model we can create a variable importance plot which shows each variable and how important it is in classifying the data. From the plot below we note that `Alcohol`, `Total_Sulfur_Dixoide` and `Sulphates` are among the top variables that play a significant role in the classification of the quality of the wine.
+
+```{r, echo=FALSE}
+# plot for rf_model
+varImpPlot(rf_model)
+```
+
+Numerically, we can see the same result below:
+```{r, echo=FALSE}
+# table for rf_model variable contribution
+varImp(rf_model) %>% kable()
+```
+
+
+Lastly, I check the accuracy on the validation data with the results of 71.3% accuracy seen below:
+
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix for the rf_model
+accuracy_rf <- confusionMatrix(rf_result, valid$Quality)$overall["Accuracy"]
+accuracy_rf
+```
+
+$~$
+
+#### Second Random Forest Model
+
+Now to create the second random forest with the third dataset using the variables `Quality`, `Alcohol`, `Volatile_Acidity`, `Sulphates`, and `Total_Sulfur_Dioxide`. The results are below:
+
+```{r, echo=FALSE}
+# create some random number for reproduction 
+set.seed(7)
+
+# create the second random forest model using the training data from the third decision tree
+rf_model2 <- randomForest(Quality ~ Alcohol + Volatile_Acidity + Sulphates + Total_Sulfur_Dioxide, train3)
+rf_model2
+
+# creating the prediction for the third decision tree
+rf_result2 <- predict(rf_model2, newdata = valid3[, !colnames(valid3) %in% "Quality"])
+
+# confusion matrix for the third decision tree
+confusionMatrix(rf_result2, valid3$Quality)
+```
+
+From the random forest model we created, we can create a variable importance plot which shows each variable and how important it is in classifying the data. From the plot below we note that `Alcohol` and `Total_Sulfur_Dioxide` are among the top variables that play a significant role in the classification of the quality of the wine.
+
+```{r, echo=FALSE}
+# plot for the second rf_model
+varImpPlot(rf_model2)
+```
+
+Numerically, we can see the same result below:
+```{r, echo=FALSE}
+# table for rf_model2 variable contribution
+varImp(rf_model2) %>% kable()
+```
+
+
+Lastly, we check on the validation data's accuracy of the second model with the results of 70.3% accuracy seen below:
+
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix for the rf_model2
+accuracy_rf2 <- confusionMatrix(rf_result2, valid3$Quality)$overall["Accuracy"]
+accuracy_rf2
+```
+
+$~$
+
+### Model Building SVM:
+
+A Support Vector Machine (SVM) is a supervised machine learning algorithm used for classification and regression tasks. It is particularly effective for classification tasks in which the goal is to divide data points into different classes based on their features. Due to their effectiveness in handling high-dimensional data and their ability to perform well with relatively small datasets SVM is used in various fields. 
+
+We were asked to create an SVM algorithm with the same data used and make the comparison. To start the algorithm, we follow similar criteria to the decision tree and random forest model by setting up the cross validation set-up, create the prediction and confusion matrix and lastly it's accuracy. Results are below:
+
+```{r echo=FALSE}
+# create some random numbers for reproduction
+set.seed(8)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(wine_df2$Quality, p=.75, list = FALSE)
+svm_train <- wine_df2[inTrain,]
+svm_valid <- wine_df2[-inTrain,]
+```
+
+$~$
+
+The confusion matrix for SVM:
+```{r echo=TRUE}
+# SVM
+svm_model <- svm(Quality ~ ., svm_train)
+
+# create prediction
+svm_result <- predict(svm_model, newdata = svm_valid)
+
+# confusion matrix for svm
+confusionMatrix(svm_result, svm_valid$Quality)
+```
+
+The summary of the SVM results:
+```{r, echo=FALSE}
+summary(svm_result)
+```
+
+
+The accuracy of this SVM is 63.7% for the original data set:
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_svm <- confusionMatrix(svm_result, svm_valid$Quality)$overall["Accuracy"]
+accuracy_svm
+```
+
+$~$
+
+#### Second SVM algorithm
+
+Decided to do a second SVM algorithm to check for any changes in accuracy, these results are below.
+```{r, echo=FALSE}
+# create some random numbers for reproduction
+set.seed(9)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(wine3$Quality, p=.75, list = FALSE)
+svm_train2 <- wine3[inTrain,]
+svm_valid2 <- wine3[-inTrain,]
+```
+
+
+The confusion matrix for the second SVM:
+```{r, echo=FALSE}
+# SVM
+svm_model2 <- svm(Quality ~ Alcohol + Volatile_Acidity + Sulphates + Total_Sulfur_Dioxide, svm_train2)
+
+# create prediction
+svm_result2 <- predict(svm_model2, newdata = svm_valid2)
+
+# confusion matrix for svm
+confusionMatrix(svm_result2, svm_valid2$Quality)
+```
+
+
+The summary of the SVM results:
+```{r, echo=FALSE}
+summary(svm_result2)
+```
+
+
+The accuracy of the second SVM is 60.5% for the original data set which is lower than the first SVM accuracy.
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_svm2 <- confusionMatrix(svm_result2, svm_valid2$Quality)$overall["Accuracy"]
+accuracy_svm2
+```
+
+$~$
+
+#### Comparison of models:
+
+Lastly, let's do a model comparison for Decision Tree, Random Forest and SVM:
+```{r, echo=FALSE}
+# Compare models
+model_names <- c("Decision Tree","Random Forest", "SVM")
+accuracies <- c(0.5843829, 0.7128463, 0.6372796)
+results <- data.frame(Model = model_names, Accuracy = accuracies)
+results <- results[order(results$Accuracy, decreasing = TRUE), ]
+results
+```
+
+
+$~$
+
+### Conclusion:
+
+**Decision Tree:**
+The Decision Tree model using the rpart algorithm achieved an accuracy of 58.4%. The confusion matrix revealed a limited ability to predict wine quality, particularly for classes 3, 4, and 8, where the sensitivity was low.
+
+**Random Forest:**
+The Random Forest model outperformed the Decision Tree with an accuracy of 71.3%. The confusion matrix showed improved predictions across all classes compared to the Decision Tree, resulting in better specificity but still had a low sensitivity in classes 3 and 4.
+
+**Support Vector Machine (SVM):**
+The SVM model achieved an accuracy of 63.7%. While it showed high specificity for most classes, it struggled with low sensitivity in classes 3, 4, and 8.
+
+Overall, I'd recommend Random Forest as the algorithm of choice for this dataset or similar for more accurate results since it outperformed decision tree by almost 20% and SVM by 11%. Random Forest is a versatile algorithm that performs well in both classification and regression scenarios. Its ability to handle high-dimensional data, deal with non-linear relationships, and reduce overfitting makes it a popular choice across a wide range of machine learning applications. Keep in mind the selection between using Random Forest for classification or regression often depends on the specific nature of the problem and the characteristics of the dataset being analyzed. 
+
+$~$
+
+
+#### References:
+
+1. Emmanuel Ahishakiye; Danison Taremwa; Elisha Opiyo Omulo; Ivan Niyonzima. Crime Prediction Using Decision Tree (JT) Classification Algorithm 
+(https://www.researchgate.net/publication/316960839_Crime_Prediction_Using_Decision_Tree_J48_Classification_Algorithm)
+
+
+2. Keivan Kianmehr, Reda Alhajj (2008). EFFECTIVENESS OF SUPPORT VECTOR MACHINE FOR CRIME HOT-SPOTS PREDICTION (https://www.tandfonline.com/doi/full/10.1080/08839510802028405) 
+
+3. K Vinothkumar; Kumar S Ranjith; Raj R Vikram; N. Mekala; R. Reshma; S.P. Sasirekha (2023). Crime Hotspot Identification using SVM in Machine Learning (https://ieeexplore.ieee.org/document/10104689)
+
