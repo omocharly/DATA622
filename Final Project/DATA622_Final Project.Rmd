@@ -1,0 +1,1241 @@
+---
+title: "DATA622_Final Project"
+output: 
+  html_document:
+    theme: cerulean
+    Highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+#### Name: Charles Ugiagbe.
+#### Date: 05/21/2024
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### The Project Problem:
+
+1. Choose a dataset
+You get to decide which dataset you want to work on. The data set must be different from the ones used in previous homeworks You can work on a problem from your job, or something you are interested in. You may also obtain a dataset from sites such as Kaggle, Data.Gov, Census Bureau, USGS or other open data portals. 
+2. Select one of the methodologies studied in weeks 1-10, and another      methodology from weeks 11-15 to apply in the new dataset selected.
+3. To complete this task:
+
+a. Describe the problem you are trying to solve.
+b. Describe your datases and what you did to prepare the data for          analysis. 
+c. Methodologies you used for analyzing the data
+d. What's the purpose of the analysis performed
+e. Make your conclusions from your analysis. Please be sure to address     the business impact (it could be of any domain) of your solution.
+
+$~$
+
+
+#### Load Libraries:
+
+The following libraries were utilized in this assignment:
+```{r, warning=FALSE, message=FALSE, cache=FALSE, comment=FALSE}
+# load libraries
+library(tidyverse)  
+library(skimr) 
+library(rpart) 
+library(rpart.plot) 
+library(kableExtra)
+library(knitr) 
+library(formattable)
+library(tidyr) 
+library(dplyr) 
+library(ggplot2) 
+library(viridis) 
+library(gridExtra) 
+library(stringr) 
+library(tidymodels) 
+library(corrplot) 
+library(caret) 
+library(neuralnet) 
+library(randomForest) 
+```
+
+$~$
+
+
+### The Data:
+
+The Fetal Health Classification dataset, available on [Kaggle.com](https://www.kaggle.com/datasets/andrewmvd/fetal-health-classification/data), comprises various cardiotocogram (CTG) exam measurements used to monitor fetal health during pregnancy. This dataset is aimed at predicting the health status of a fetus based on features obtained from CTG exams. The dataset contains 21 features derived from CTG exams and a target variable indicating the fetal health status. These features include quantitative measurements obtained from CTG exams, such as baseline fetal heart rate, accelerations, decelerations, uterine contractions, and various other parameters related to fetal health monitoring. 
+
+The target variable represents the fetal health status, which is classified into three categories:
+
+* *Normal: Indicates a normal or healthy fetal condition.*
+* *Suspect: Suggests a potential concern or suspicion regarding fetal health.*
+* *Pathological: Indicates a pathological or concerning fetal health condition.*
+
+$~$
+
+Full description of the variables below:
+
+<table>
+<center>
+
+Variable                                                        Description
+-------------                                                   ----------------
+baseline.value [LB]	                                            Fetal heart rate (FHR) baseline (beats per minute)
+accelerations [AC]	                                            # of accelerations per second
+fetal_movement [FM]	                                            # of fetal movements per second
+uterine_contractions [UC]	                                      # of uterine contractions per second
+light_decelerations [DL]	                                      # of light decelerations per second
+severe_decelerations [DS]	                                      # of severe decelerations per second
+prolongued_decelerations [DP]	                                  # of prolonged decelerations per second
+abnormal_short_term_variability [ASTV]	                        % of time with abnormal short term variability
+mean_value_of_short_term_variability [MSTV]	                    Mean value of short term variability
+percentage_of_time_with_abnormal_long_term_variability [ALTV]	  % of time with abnormal long term variability
+mean_value_of_long_term_variability [MLTV]	                    Mean value of long term variability
+histogram_width [Hist_width]                                    Width of FHR histogram
+histogram_min [Hist_min]	                                      Minimum (low frequency) of FHR histogram
+histogram_max [Hist_max]	                                      Maximum (high frequency) of FHR histogram
+histogram_number_of_peaks [Nmax]	                              # of histogram peaks
+histogram_number_of_zeroes [Nzeroes]	                          # of histogram zeroes
+histogram_mode [Hist_mode]	                                    Histogram mode
+histogram_mean [Hist_mean]	                                    Histogram mean
+histogram_median [Hist_median]	                                Histogram median
+histogram_variance [Hist_var]	                                  Histogram variance
+histogram_tendency [Hist_tendency]	                            Histogram tendency
+fetal_health [NSP]	                                            1 (Normal), 2 (Suspect), 3 (Pathological) - TARGET
+
+</center>
+</table>
+
+$~$
+
+### Methodology:
+
+Cleanse the dataset, handle missing values (if any), encode categorical variables, and normalize/standardize numerical features as necessary. Divide the dataset into training and testing sets to train the models and evaluate their performance. For the model building I will utilize a decision tree algorithm to create a classification model that learns patterns in the dataset's features (like fetal heart rate, uterine contractions, etc.) to predict the fetal health status. Implement a neural network architecture, to train a model that can learn complex patterns and relationships within the dataset to classify the fetal health status accurately.
+
+* For Decision Tree: Use the decision tree algorithm available in R (e.g., using libraries like rpart or tree) to create the classification model.
+* For Neural Networks: Use R libraries such as nnet and neuralnet to build and train a neural network model.
+
+Evaluate the models using appropriate evaluation metrics on the test dataset to assess their performance. Fine-tune the models by adjusting hyperparameters (like tree depth, learning rate, number of layers/neurons) to optimize their performance. Compare the performance of the decision tree and neural network models to determine which one performs best in classifying fetal health status. Finally, use the best-performing model to make predictions on new or unseen data.
+
+$~$
+
+#### Load Data:
+
+The dataset being used has been downloaded into my github repository and loaded into R
+
+```{r, echo=FALSE}
+# load the dataset from github
+fetal_df <- read.csv("https://raw.githubusercontent.com/omocharly/DATA622/main/Final%20Project/fetal_health.csv")
+fetal_df <- fetal_df %>% rename(Baseline_Value = 'baseline.value',
+                                AC = "accelerations",
+                                FM = "fetal_movement",
+                                UC = "uterine_contractions", 
+                                DL = "light_decelerations",
+                                DS = "severe_decelerations",
+                                DP = "prolongued_decelerations",
+                                ASTV = "abnormal_short_term_variability",
+                                MSTV = "mean_value_of_short_term_variability",
+                                ALTV = "percentage_of_time_with_abnormal_long_term_variability",
+                                MLTV = "mean_value_of_long_term_variability",
+                                Hist_width = "histogram_width",
+                                Hist_min = "histogram_min",
+                                Hist_max = "histogram_max",
+                                Nmax = "histogram_number_of_peaks",
+                                Nzeroes = "histogram_number_of_zeroes",
+                                Hist_mode = "histogram_mode",
+                                Hist_mean = "histogram_mean",
+                                Hist_median = "histogram_median",
+                                Hist_var = "histogram_variance",
+                                Hist_tendency = "histogram_tendency",
+                                Fetal_Health = "fetal_health")                                    
+```
+
+```{r, echo=FALSE, kable.opts=list(caption="data frame is now printed using `kable`.")}
+# display the dataset
+fetal_df %>% 
+kable(format = "html", col.names = colnames(fetal_df)) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "400px")
+```
+
+$~$
+
+### Data Exploration
+
+Using the `skimr` library we can obtain a quick summary statistic of the dataset. This dataset contains 2126 values and 22 variables including the Target variable. They are all numeric and seems to have no missing variables.
+
+```{r, echo=FALSE}
+# summary of the dataset
+skim(fetal_df)
+```
+
+$~$
+
+Upon examining the variable distributions, our initial observation highlights that several variables adhere to a normal distribution. These variables comprise `Baseline Value`, `Width of FHR Histogram,` and `Histogram Median`.
+
+Additional noteworthy points:
+
+* The 'Normal' (1) classification in `Fetal Health` exhibits the highest frequency.
+* Right-skewed distributions are apparent in `Accelerations [AC]`, `Light Decelerations [DL]`, `Mean Short Variability [MSTV]`, `Percentage of time with Abnormal Long Term Variability [ALTV]`, and `Hist_var`.
+* Bimodal distributions manifest in `Abnormal Short Variability [ASTV]`, `Hist_width`, and `Hist_min`.
+* There's a presumption of the presence of outliers in the variables `Fetal Movement [FM]`, `Severe Decelerations [DS]`, `Prolongued Decelerations [DP]`, and `No. of Histogram Zeroes [Nzeroes]`.
+
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+
+# Histogram for fetal_health
+p1 <- fetal_df %>%
+ggplot( aes(x=Fetal_Health)) +
+    geom_histogram(fill="#1C315E", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fetal Health") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for baseline.value
+p2 <- fetal_df %>%
+ggplot( aes(x=Baseline_Value)) +
+    geom_histogram(fill="#227C70", color="#e9ecef", alpha=0.8) +
+    ggtitle("Baseline Value") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for accelerations
+p3 <- fetal_df %>%
+ggplot( aes(x=AC)) +
+    geom_histogram(fill="#808000", color="#e9ecef", alpha=0.8) +
+    ggtitle("Accelerations") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for fetal_movement
+p4 <- fetal_df %>%
+ggplot( aes(x=FM)) +
+    geom_histogram(fill="#88A47C", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fetal Movement") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+# Histogram for uterine_contractions
+p5 <- fetal_df %>%
+ggplot( aes(x=UC)) +
+    geom_histogram(fill="#495579", color="#e9ecef", alpha=0.8) +
+    ggtitle("Uterine Contractions") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for light_decelerations
+p6 <- fetal_df %>%
+ggplot( aes(x=DL)) +
+    geom_histogram(fill="#8B7E74", color="#e9ecef", alpha=0.8) +
+    ggtitle("Light Decelerations") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for severe_decelerations
+p7 <- fetal_df %>%
+ggplot( aes(x=DS)) +
+    geom_histogram(fill="#C7BCA1", color="#e9ecef", alpha=0.8) +
+    ggtitle("Severe Decelerations") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for prolongued_decelerations
+p8 <- fetal_df %>%
+ggplot( aes(x=DP)) +
+    geom_histogram(fill="#EB6440", color="#e9ecef", alpha=0.8) +
+    ggtitle("Prolongued Decelerations") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for abnormal_short_var
+p9 <- fetal_df %>%
+ggplot( aes(x=ASTV)) +
+    geom_histogram(fill="#E8AA42", color="#e9ecef", alpha=0.8) +
+    ggtitle("Abnormal Short Variability") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for mean_value_of_short_term_variability
+p10 <- fetal_df %>%
+ggplot( aes(x=MSTV)) +
+    geom_histogram(fill="#9B3675", color="#e9ecef", alpha=0.8) +
+    ggtitle("Mean Short Variability") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for percentage_of_time_with_abnormal_long_term_variability
+p11 <- fetal_df %>%
+ggplot( aes(x=ALTV)) +
+    geom_histogram(fill="#6E7C7C", color="#e9ecef", alpha=0.8) +
+    ggtitle("Percentage of time with Abnormal Long Term Variability") +
+    theme(
+      plot.title = element_text(size=12)
+    )
+
+# Histogram for mean_value_of_long_term_variability
+p12 <- fetal_df %>%
+ggplot( aes(x=MLTV)) +
+    geom_histogram(fill="#495579", color="#e9ecef", alpha=0.8) +
+    ggtitle("Mean Long Variability") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 4))
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12)
+```
+
+```{r, fig.height=12, fig.width=12, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+
+# Histogram for histogram_width
+p13 <- fetal_df %>%
+ggplot( aes(x=Hist_width)) +
+    geom_histogram(fill="#795548", color="#e9ecef", alpha=0.8) +
+    ggtitle("Width of FHR Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_min
+p14 <- fetal_df %>%
+ggplot( aes(x=Hist_min)) +
+    geom_histogram(fill="#607D8B", color="#e9ecef", alpha=0.8) +
+    ggtitle("Minimum of FHR Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_max
+p15 <- fetal_df %>%
+ggplot( aes(x=Hist_max)) +
+    geom_histogram(fill="#92967D", color="#e9ecef", alpha=0.8) +
+    ggtitle("Maximum of FHR Histogram") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_number_of_peaks
+p16 <- fetal_df %>%
+ggplot( aes(x=Nmax)) +
+    geom_histogram(fill="#a86800", color="#e9ecef", alpha=0.8) +
+    ggtitle("No. of Histogram Peaks") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_number_of_zeroes
+p17 <- fetal_df %>%
+ggplot( aes(x=Nzeroes)) +
+    geom_histogram(fill="#D0CECE", color="#e9ecef", alpha=0.8) +
+    ggtitle("No. of Histogram Zeroes") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_modes
+p18 <- fetal_df %>%
+ggplot( aes(x=Hist_mode)) +
+    geom_histogram(fill="#937070", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Mode") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_mean
+p19 <- fetal_df %>%
+ggplot( aes(x=Hist_mean)) +
+    geom_histogram(fill="#aaad97", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Mean") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_median
+p20 <- fetal_df %>%
+ggplot( aes(x=Hist_median)) +
+    geom_histogram(fill="#7e102c", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Median") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_variance
+p21 <- fetal_df %>%
+ggplot( aes(x=Hist_var)) +
+    geom_histogram(fill="#e1d3cc", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Variance") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_tendency
+p22 <- fetal_df %>%
+ggplot( aes(x=Hist_tendency)) +
+    geom_histogram(fill="#767468", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Tendency") +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 4))
+grid.arrange(p13,p14,p15,p16,p17,p18,p19,p20,p21,p22)
+```
+
+$~$
+
+We'll utilize boxplots to identify outliers across the complete dataset. Confirming my initial presumption, I can affirm the presence of outliers not only in the variables initially suspected but also in 16 out of 22 variables. Managing outliers in a dataset stands as a crucial phase in data preparation due to their potential substantial influence on statistical analyses and model building.
+
+```{r, fig.height=18, fig.width=10, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+
+# boxplot of variables
+fetal_df2 <- fetal_df %>% 
+                gather(variable, values, 1:dim(fetal_df)[2])
+fetal_df2 %>% 
+  ggplot() +
+  geom_boxplot(aes(x = variable, y = values)) +
+  facet_wrap(~variable, ncol = 4, scales = "free") +
+    theme(
+      plot.title = element_text(size=6)
+    )
+```
+
+$~$
+
+A correlation plot displays the relationships and strengths of associations between variables in a dataset. The plot includes numeric variables related to fetal health indicators such as fetal heart rate, uterine contractions, and fetal movement. The correlation coefficients range from -1 to +1, where positive correlations are represented by warmer colors (e.g., red) and negative correlations by cooler colors (e.g., blue).
+
+The plot revealed a strong positive correlation between `Nmax` and `Hist_width` as well as `Hist_max` and `Hist_width`, the FHR histogram might depict the distribution of fetal heart rates observed during a particular time frame, such as during labor or specific intervals of monitoring. A wider FHR histogram might suggest a greater variation or fluctuation in fetal heart rates during the monitored period. In certain cases, specific widths in the FHR histogram might correlate with certain health conditions or provide insights into the fetal well-being. For instance, increased variability can sometimes be a sign of a healthy, responsive fetus. The plot also reveals a strong negative correlation between `Hist_min` and `Hist_width` and an odd strong positive correlation between `Hist_mode`, `Hist_mean`, and `Hist_median`,
+
+The correlation plot has limitations as it only captures linear relationships and may not account for complex interactions between variables. Despite this, the insights gained from the plot below will help guide my feature selection process for developing a predictive model for fetal health classification. 
+
+```{r, fig.height=10, fig.width=10, warning=FALSE, echo=FALSE, message=FALSE}
+
+# Correlation matrix
+cor_matrix <- cor(fetal_df[, -ncol(fetal_df)])
+
+# Visualize the correlation matrix using corrplot
+corrplot(cor_matrix, method = "color", tl.col = "black")
+```
+
+$~$
+
+### Data Preparation
+
+The highest priority for data preparation is addressing the outliers in order to have a better accuracy when creating models. For this, I seperated the target and the predictor variables to perform a "Winsorization" process on the dataframe predictors. Winsorization involves capping/extending extreme values by replacing them with a predefined percentile value (5th percentile for lower values and 95th percentile for higher values) to reduce the influence of outliers while preserving the distribution of the data. The resultant dataset, predictors_cleaned, comprises these modified values, combined with the original target variable 'Fetal_Health' to form the reconstructed dataset.
+
+
+```{r, echo=FALSE}
+
+# Separate the target variable
+target <- fetal_df$Fetal_Health
+predictors <- fetal_df[, -which(names(fetal_df) == "Fetal_Health")]
+
+# Apply outlier treatment to predictors
+# Example: Using Winsorization for outlier treatment
+
+predictors_cleaned <- predictors %>%
+  mutate_all(~ifelse(. < quantile(., 0.05), quantile(., 0.05),
+                     ifelse(. > quantile(., 0.95), quantile(., 0.95), .)))
+
+# Reconstruct the dataset with cleaned predictors and the original target variable
+fetal_df_cleaned <- cbind(predictors_cleaned, Fetal_Health = target)
+
+# Use 'data_cleaned' for model training while keeping the original target variable unchanged
+```
+
+
+$~$
+
+Let's now examine the impact of incorporating parameters for outliers in each variable through a boxplot. The initial observation reveals a notable decrease in outliers, particularly noticeable within the variables:  `FM`, `Hist_var`, `Nzeroes`, `MLTV`, `MSTV`, `ALTV`, and `DP`.
+
+```{r, fig.height=18, fig.width=10, warning=FALSE, echo=FALSE, message=FALSE, fig.align='center'}
+
+# boxplot of the variables with the outlier parameters
+fetal_df2 <- fetal_df_cleaned %>% 
+                gather(variable, values, 1:dim(fetal_df_cleaned)[2])
+fetal_df2 %>% 
+  ggplot() +
+  geom_boxplot(aes(x = variable, y = values)) +
+  facet_wrap(~variable, ncol = 4, scales = "free") +
+    theme(
+      plot.title = element_text(size=6)
+    )
+```
+
+
+$~$
+
+### Model Building:
+
+After preparing the data, I'm ready to initiate model construction using the cleaned dataset `fetal_df_cleaned`. Based on past success, I've achieved notable accuracies using decision trees. Additionally, I'll be developing a neural network model for this dataset to compare the performance of these two models.
+
+$~$
+
+#### Decision Tree
+
+The initial decision tree constructed is based on `Fetal Health` against the entire dataset. Employing a 75:25 cross-validation approach, I initially divided the data and created the decision tree. The output is below:
+
+```{r, echo=FALSE}
+# create some random numbers for reproduction
+set.seed(94)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(as.factor(fetal_df_cleaned$Fetal_Health), p=.75, list = F)
+train <- fetal_df_cleaned[inTrain,]
+valid <- fetal_df_cleaned[-inTrain,]
+
+# create the decision tree
+rpart_model <- rpart(Fetal_Health ~ ., method = "class", data = train)
+
+# display the decision tree
+prp(rpart_model, extra=1, faclen=0,  nn=T, box.palette="Browns")
+```
+
+Then we test the model using the validation dataset. The results are seen in the confusion matrix and statistics output:
+```{r, echo=FALSE}
+
+# creating our prediction
+rpart_result <- predict(rpart_model, newdata = valid[, !colnames(valid) %in% "Fetal_Health"], type = 'class')
+
+# confusion matrix
+confusionMatrix(rpart_result, as.factor(valid$Fetal_Health))
+```
+
+$~$
+
+Consider examining the individual contributions of each variable. It's evident that `AC`, `ALTV`, `ASTV`, `D`P, `Hist_mean`, `MLTV`, and `MSTV` hold significant influence within the dataset. Upon analyzing the correlation plot, notable strong positive correlations were observed among `Hist_mode`, `Hist_mean`, and `Hist_median`, yet only `Hist_mean` appears to wield influence within this dataset.
+
+```{r, echo=FALSE}
+# contribution of variables
+varImp(rpart_model) %>% kable()
+```
+
+$~$
+
+The model's accuracy stands at 89.62%, which is commendable. However, considering the variable contributions, I'm planning to build a second decision tree by removing the variables with lower contributions.
+
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_rpart <- confusionMatrix(rpart_result, as.factor(valid$Fetal_Health))$overall["Accuracy"]
+kable(accuracy_rpart, align = "l")
+```
+
+$~$
+
+##### **Second Decision Tree:** 
+
+As mentioned, this second decision tree is based off the variables with highest contribution: `AC`, `ALTV`, `ASTV`, `DP`, `MLTV`, `MSTV`, and the target variable `Fetal_Health`. The results are below:
+
+```{r, echo=FALSE}
+
+# creating the second dataset from the original
+fetal_df_cleaned2 <- fetal_df_cleaned %>%
+  #gather(variable, values, 1:dim(fetal_df_cleaned)[2]) %>% 
+  dplyr::select(AC, ALTV, ASTV, DP, MLTV, MSTV, Fetal_Health)
+
+# create some random numbers for reproduction
+set.seed(98)
+
+# Cross Validation Set-up
+inTrain2 <- createDataPartition(as.factor(fetal_df_cleaned2$Fetal_Health), p=.75, list = F)
+train2 <- fetal_df_cleaned2[inTrain2,]
+valid2 <- fetal_df_cleaned2[-inTrain2,]
+
+# create the decision tree
+rpart_model2 <- rpart(Fetal_Health ~ ., method = "class", data = train2)
+
+# display the decision tree
+prp(rpart_model2, extra=1, faclen=0,  nn=T, box.palette="Browns")
+```
+
+$~$
+
+Same as before, we create the confusion matrix and statistics for the second decision tree using the testing data:
+```{r, echo=FALSE}
+
+# creating our prediction
+rpart_result2 <- predict(rpart_model2, newdata = valid2[, !colnames(valid2) %in% "Fetal_Health"], type = 'class')
+
+# confusion matrix
+confusionMatrix(rpart_result2, as.factor(valid2$Fetal_Health))
+```
+
+$~$
+
+Let's examine the impact of each variable within the context of the second dataset. There's a noticeable shift in the overall contribution levels among the variables. 
+
+```{r, echo=FALSE}
+# contribution of variables
+varImp(rpart_model2) %>% kable()
+```
+
+$~$
+
+Ultimately, we observe that the accuracy has increased to 90.57% compared to the initial decision tree.
+```{r, echo=FALSE}
+# Extract accuracy from the confusion matrix
+accuracy_rpart2 <- confusionMatrix(rpart_result2, as.factor(valid2$Fetal_Health))$overall["Accuracy"]
+kable(accuracy_rpart2, align = "l")
+```
+
+$~$
+
+#### Neural Networks
+
+Neural networks are a class of machine learning models inspired by the structure and functioning of the human brain. They are composed of interconnected nodes, known as neurons, organized into layers. Each neuron receives input, processes it through an activation function, and passes the output to the next layer of neurons. These models are designed to recognize patterns, learn from data, and make predictions or decisions without explicit programming. In R, there are different packages available for working with neural networks, such as `nnet` and `neuralnet` which will be used with this dataset.
+
+
+##### Neural Networks using `nnet`:
+
+The first neural network will be build using `nnet`. The nnet package in R is primarily designed for building feedforward neural networks. It supports single-hidden-layer and limited multilayer feedforward neural networks. Uses a backpropagation algorithm for training neural networks. Offers flexibility in specifying the number of hidden units and activation functions but it's limited to relatively simple neural network architectures and may not scale well for more complex models.
+
+To start, I set parameters for the model training process, and then trained the model. Being that the output of the model results was long, these results won't be displayed but are available for reproduction within my code in GitHub.
+
+```{r, echo=FALSE, include=FALSE}
+# set random numbers for reproduction
+set.seed(56)
+
+# set up the parameters for the model training process
+train_control <- trainControl(
+  method = "cv",
+  number = 5
+)
+
+# set up additional parameters for the model training process
+ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE,
+  savePredictions = T
+)
+
+# defining grid for hyperparameter tuning
+grid <-  expand.grid(size = seq(from = 1, to = 10, by = 1),
+                     decay = seq(from = 0.1, to = 0.5, by = 0.1))
+
+# train the nnet model
+nnet <- train(Fetal_Health ~ ., data = train2,
+                          method = 'nnet')
+```
+
+$~$
+
+From the output, I was able to create the plot below, which depicts the optimization of weight decay within each iterations (5) for the RMSE value. 
+
+```{r, echo=FALSE}
+# create nnet model plot
+plot(nnet)
+```
+
+$~$
+
+This second plot shows the importance of the variables in the `nnet` model. `MLTV` is the top variable with the highest level of importance and `DP` contains the lowest level of importance in this dataset.
+```{r, echo=FALSE}
+# compute and visualize variable importance for a neural network model 
+plot(varImp(nnet), top=10)
+```
+
+$~$
+
+##### Neural Network using `neuralnet`
+
+For the second neural network model I am using the `neuralnet` package. The `neuralnet` package in R supports more complex neural network architectures. It allows for the creation of more complex neural networks with multiple hidden layers. Utilizes the backpropagation algorithm and offers flexibility in weight initialization and learning algorithms. Provides additional functionalities like visualization of network topology and training progress. It's more flexible in designing and training complex neural network structures but may require more computational resources due to the complexity of the models.
+
+Similar to the first model, I created the model by specifying the variables from `fetal_df_cleaned2` which included `AC`, `ALTV`, `ASTV`, `DP`, `MLTV`, `MSTV`, and the target variable `Fetal_Health` and setting the parameters to 2 hidden layers with 4 and 2 neurons.
+
+```{r, echo=FALSE}
+# set a seed for reproducibility purposes
+set.seed(13)
+# create the model
+model <-  neuralnet(
+    Fetal_Health~AC + ALTV + ASTV + DP + MLTV + MSTV,
+data=train2,
+hidden=c(4,2), # specify the number of hidden layers and the number of neurons in each layer. In this case, there are two hidden layers with four and two neurons, respectively.
+linear.output = FALSE
+)
+```
+
+
+$~$
+
+The plot below is the output of the model created: 
+
+* The left-most nodes (i.e. input nodes) are the raw data variables used in the model.
+
+* The arrows in black (and associated numbers) are the weights which you can think of as how much that variable contributes to the next node. The blue lines are the bias weights which are an additional parameter introduced to each neuron and serves as an offset or intercept term, contributing to the ability of the network to fit more complex patterns in the data.
+
+* The middle nodes (i.e. anything between the input and output nodes) are your hidden nodes. This is where the image analogy helps. Each of these nodes constitute a component that the network is learning to recognize. 
+
+* The far-right (output node(s)) node is the final output of the neural network.
+
+In the context of a `neuralnet` plot displaying an error of 375.008195 and steps of 43, this information typically pertains to the training progress of a neural network model and provides insights into the model's learning behavior.
+
+* An error value of 375.008195 suggests the current level of model error or loss at the 43rd step/iteration during training.
+
+* As the number of steps increases during training, the hope is that the error gradually decreases, indicating the neural network is learning and improving its predictive capability.
+
+```{r echo=FALSE}
+# create the plot based on the model above
+plot(model,rep = "best")
+```
+$~$
+
+Here's a prediction table of the status in `Fetal Health` with normal having the largest prediction count.
+
+```{r, echo=FALSE}
+# make predictions on the test data using a previously trained model
+pred <- predict(model, valid2)
+
+# create a vector of labels for the three possible `fetal_health` status in the dataset.
+labels <- c("Normal", "Suspect", "Pathological")
+
+# creates a data frame with the column index of the maximum value in each row of the "pred" variable
+prediction_label <- data.frame(max.col(pred)) %>% 
+# use the mutate function to add a new column to the data frame called "pred"
+mutate(pred=labels[max.col.pred.]) %>%
+select(2) %>%
+# convert the data frame to a vector.
+unlist()
+
+# print the table
+table(valid2$Fetal_Health, prediction_label)
+```
+
+$~$
+
+Lastly, we check the accuracy using the validation data by first converting actual categorical values into numerical ones and compare them with predicted values. The `neuralnet` accuracy is 77.92% which is less than the accuracy of the second decision tree.
+
+```{r echo=FALSE}
+# checking the accuracy
+check <- as.numeric(valid2$Fetal_Health) == max.col(pred)
+nn_accuracy <-  (sum(check)/nrow(valid2))
+nn_accuracy
+```
+
+$~$
+
+### Model Comparison
+
+These results below provide accuracy scores for two different models: a Decision Tree (rpart) model and a Neural Network (neuralnet) model. Accuracy measures the proportion of correctly predicted outcomes over the total number of predictions made by the model.
+
+```{r, echo=FALSE}
+# Compare models
+model_names <- c("Decision Tree", "Neural Network")
+accuracies <- c(0.9056604, 0.7792453)
+results <- data.frame(Model = model_names, Accuracy = accuracies)
+results <- results[order(results$Accuracy, decreasing = TRUE), ]
+results
+```
+
+$~$
+
+
+### Conclusion:
+
+Based on the accuracy scores,
+
+**Decision Tree:**
+The second Decision Tree model using the `rpart` algorithm achieved an accuracy of 90.57%. This model achieved a higher accuracy score compared the first decision tree and both Neural Network models. The confusion matrix revealed Class 1 has a higher precision compared to classes 2 and 3. Specificity is generally high across all classes, indicating good performance in correctly identifying negative instances.
+
+**Neural Network:**
+The second neural network model using `neuralnet` achieved an accuracy of 77.92%. This model achieved a lower accuracy score compared to the Decision Tree model. Both models exhibited good performance, with only the second model capable of generating accuracy results.
+
+
+Overall, the Decision Tree model appears to have outperformed the Neural Network model in terms of accuracy. I encountered difficulties while attempting to build both neural network models, struggling to identify the exact issue. I explored multiple code examples to aid in modeling, and fortunately, the 'nnet' and 'neuralnet' functions operated smoothly without encountering errors with my dataset.
+
+
+$~$
+
+#### References:
+
+* How to remove outliers from data in R - universe of Data Science. Universe of Data Science for the Future. (2022, March 4). https://universeofdatascience.com/how-to-remove-outliers-from-data-in-r/ 
+
+* Huang, L., Jiang, Z., Cai, R., Li, L., Chen, Q., Hong, J., Hao, Z., & Wei, H. (2021). Investigating the interpretability of fetal status assessment using antepartum cardiotocographic records. BMC medical informatics and decision making, 21(1), 355. https://doi.org/10.1186/s12911-021-01714-4
+
+* Awan, A. A. (2023, February 6). Building Neural Network (NN) models in R. DataCamp. https://www.datacamp.com/tutorial/neural-network-models-r 
+
+* GeeksforGeeks. (2020, August 20). Building a simple neural network in R programming. GeeksforGeeks. https://www.geeksforgeeks.org/building-a-simple-neural-network-in-r-programming/ 
+
+* Awan, A. A. (2023a, February 6). Building Neural Network (NN) models in R. DataCamp. https://www.datacamp.com/tutorial/neural-network-models-r 
+
+* KaranKaran . (1956, April 1). What is the role of the bias in neural networks?. Stack Overflow. https://stackoverflow.com/questions/2480650/what-is-the-role-of-the-bias-in-neural-networks 
+
+* KaranKaran . (1956, April 1). What is the role of the bias in neural networks?. Stack Overflow. https://stackoverflow.com/questions/2480650/what-is-the-role-of-the-bias-in-neural-networks 
+
+$~$
+
+### Appendix: Code
+
+The code used in this project is below:
+
+```{r appendix-all-codes, eval=FALSE, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) # data prep
+library(skimr) # data prep
+library(rpart) # decision tree package
+library(rpart.plot) # decision tree display package
+library(kableExtra)
+library(knitr) # kable function for table
+library(formattable)
+library(tidyr) # splitting data
+library(dplyr) # used in filtering outliers
+library(ggplot2) # graphing
+library(hrbrthemes) # chart customization
+library(viridis) # ggplot2 formating for boxplot
+library(gridExtra) # layering charts
+library(stringr) # data prep
+library(tidymodels) # predictions
+library(corrplot) # correlation plot
+library(caret) # confusion matrix
+library(neuralnet) # neural network
+
+# load the dataset from github
+fetal_df <- read.csv("https://raw.githubusercontent.com/letisalba/Data-622/master/Homework-4/csv/fetal_health.csv")
+fetal_df <- fetal_df %>% rename(Baseline_Value = 'baseline.value',
+                                AC = "accelerations",
+                                FM = "fetal_movement",
+                                UC = "uterine_contractions", 
+                                DL = "light_decelerations",
+                                DS = "severe_decelerations",
+                                DP = "prolongued_decelerations",
+                                ASTV = "abnormal_short_term_variability",
+                                MSTV = "mean_value_of_short_term_variability",
+                                ALTV = "percentage_of_time_with_abnormal_long_term_variability",
+                                MLTV = "mean_value_of_long_term_variability",
+                                Hist_width = "histogram_width",
+                                Hist_min = "histogram_min",
+                                Hist_max = "histogram_max",
+                                Nmax = "histogram_number_of_peaks",
+                                Nzeroes = "histogram_number_of_zeroes",
+                                Hist_mode = "histogram_mode",
+                                Hist_mean = "histogram_mean",
+                                Hist_median = "histogram_median",
+                                Hist_var = "histogram_variance",
+                                Hist_tendency = "histogram_tendency",
+                                Fetal_Health = "fetal_health")     
+
+# display the dataset
+fetal_df %>% 
+kable(format = "html", col.names = colnames(fetal_df)) %>%
+  kable_styling() %>%
+  kableExtra::scroll_box(width = "100%", height = "400px")
+
+# summary of the dataset
+skim(fetal_df)
+
+# Histogram for fetal_health
+p1 <- fetal_df %>%
+ggplot( aes(x=Fetal_Health)) +
+    geom_histogram(fill="#1C315E", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fetal Health") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for baseline.value
+p2 <- fetal_df %>%
+ggplot( aes(x=Baseline_Value)) +
+    geom_histogram(fill="#227C70", color="#e9ecef", alpha=0.8) +
+    ggtitle("Baseline Value") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for accelerations
+p3 <- fetal_df %>%
+ggplot( aes(x=AC)) +
+    geom_histogram(fill="#808000", color="#e9ecef", alpha=0.8) +
+    ggtitle("Accelerations") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for fetal_movement
+p4 <- fetal_df %>%
+ggplot( aes(x=FM)) +
+    geom_histogram(fill="#88A47C", color="#e9ecef", alpha=0.8) +
+    ggtitle("Fetal Movement") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+# Histogram for uterine_contractions
+p5 <- fetal_df %>%
+ggplot( aes(x=UC)) +
+    geom_histogram(fill="#495579", color="#e9ecef", alpha=0.8) +
+    ggtitle("Uterine Contractions") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for light_decelerations
+p6 <- fetal_df %>%
+ggplot( aes(x=DL)) +
+    geom_histogram(fill="#8B7E74", color="#e9ecef", alpha=0.8) +
+    ggtitle("Light Decelerations") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for severe_decelerations
+p7 <- fetal_df %>%
+ggplot( aes(x=DS)) +
+    geom_histogram(fill="#C7BCA1", color="#e9ecef", alpha=0.8) +
+    ggtitle("Severe Decelerations") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for prolongued_decelerations
+p8 <- fetal_df %>%
+ggplot( aes(x=DP)) +
+    geom_histogram(fill="#EB6440", color="#e9ecef", alpha=0.8) +
+    ggtitle("Prolongued Decelerations") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for abnormal_short_var
+p9 <- fetal_df %>%
+ggplot( aes(x=ASTV)) +
+    geom_histogram(fill="#E8AA42", color="#e9ecef", alpha=0.8) +
+    ggtitle("Abnormal Short Variability") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for mean_value_of_short_term_variability
+p10 <- fetal_df %>%
+ggplot( aes(x=MSTV)) +
+    geom_histogram(fill="#9B3675", color="#e9ecef", alpha=0.8) +
+    ggtitle("Mean Short Variability") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for percentage_of_time_with_abnormal_long_term_variability
+p11 <- fetal_df %>%
+ggplot( aes(x=ALTV)) +
+    geom_histogram(fill="#6E7C7C", color="#e9ecef", alpha=0.8) +
+    ggtitle("Percentage of time with Abnormal Long Term Variability") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=12)
+    )
+
+# Histogram for mean_value_of_long_term_variability
+p12 <- fetal_df %>%
+ggplot( aes(x=MLTV)) +
+    geom_histogram(fill="#495579", color="#e9ecef", alpha=0.8) +
+    ggtitle("Mean Long Variability") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_width
+p13 <- fetal_df %>%
+ggplot( aes(x=Hist_width)) +
+    geom_histogram(fill="#795548", color="#e9ecef", alpha=0.8) +
+    ggtitle("Width of FHR Histogram") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_min
+p14 <- fetal_df %>%
+ggplot( aes(x=Hist_min)) +
+    geom_histogram(fill="#607D8B", color="#e9ecef", alpha=0.8) +
+    ggtitle("Minimum of FHR Histogram") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_max
+p15 <- fetal_df %>%
+ggplot( aes(x=Hist_max)) +
+    geom_histogram(fill="#92967D", color="#e9ecef", alpha=0.8) +
+    ggtitle("Maximum of FHR Histogram") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_number_of_peaks
+p16 <- fetal_df %>%
+ggplot( aes(x=Nmax)) +
+    geom_histogram(fill="#a86800", color="#e9ecef", alpha=0.8) +
+    ggtitle("No. of Histogram Peaks") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_number_of_zeroes
+p17 <- fetal_df %>%
+ggplot( aes(x=Nzeroes)) +
+    geom_histogram(fill="#D0CECE", color="#e9ecef", alpha=0.8) +
+    ggtitle("No. of Histogram Zeroes") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_modes
+p18 <- fetal_df %>%
+ggplot( aes(x=Hist_mode)) +
+    geom_histogram(fill="#937070", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Mode") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_mean
+p19 <- fetal_df %>%
+ggplot( aes(x=Hist_mean)) +
+    geom_histogram(fill="#aaad97", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Mean") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_median
+p20 <- fetal_df %>%
+ggplot( aes(x=Hist_median)) +
+    geom_histogram(fill="#7e102c", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Median") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_variance
+p21 <- fetal_df %>%
+ggplot( aes(x=Hist_var)) +
+    geom_histogram(fill="#e1d3cc", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Variance") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# Histogram for histogram_tendency
+p22 <- fetal_df %>%
+ggplot( aes(x=Hist_tendency)) +
+    geom_histogram(fill="#767468", color="#e9ecef", alpha=0.8) +
+    ggtitle("Histogram Tendency") +
+    theme_ipsum() +
+    theme(
+      plot.title = element_text(size=15)
+    )
+
+# displaying the histograms
+par(mfrow = c(3, 4))
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22)
+
+# boxplot of variables
+fetal_df2 <- fetal_df %>% 
+                gather(variable, values, 1:dim(fetal_df)[2])
+fetal_df2 %>% 
+  ggplot() +
+  geom_boxplot(aes(x = variable, y = values)) +
+  facet_wrap(~variable, ncol = 4, scales = "free") +
+  theme_ipsum() +
+    theme(
+      plot.title = element_text(size=6)
+    )
+
+# Correlation matrix
+cor_matrix <- cor(fetal_df[, -ncol(fetal_df)])
+
+# Visualize the correlation matrix using corrplot
+corrplot(cor_matrix, method = "color", tl.col = "black")
+
+# Separate the target variable
+target <- fetal_df$Fetal_Health
+predictors <- fetal_df[, -which(names(fetal_df) == "Fetal_Health")]
+
+# Apply outlier treatment to predictors
+# Example: Using Winsorization for outlier treatment
+
+predictors_cleaned <- predictors %>%
+  mutate_all(~ifelse(. < quantile(., 0.05), quantile(., 0.05),
+                     ifelse(. > quantile(., 0.95), quantile(., 0.95), .)))
+
+# Reconstruct the dataset with cleaned predictors and the original target variable
+fetal_df_cleaned <- cbind(predictors_cleaned, Fetal_Health = target)
+
+# Use 'data_cleaned' for model training while keeping the original target variable unchanged
+
+# boxplot of the variables with the outlier parameters
+fetal_df2 <- fetal_df_cleaned %>% 
+                gather(variable, values, 1:dim(fetal_df_cleaned)[2])
+fetal_df2 %>% 
+  ggplot() +
+  geom_boxplot(aes(x = variable, y = values)) +
+  facet_wrap(~variable, ncol = 4, scales = "free") +
+  theme_ipsum() +
+    theme(
+      plot.title = element_text(size=6)
+    )
+
+# create some random numbers for reproduction
+set.seed(94)
+
+# Cross Validation Set-up
+inTrain <- createDataPartition(as.factor(fetal_df_cleaned$Fetal_Health), p=.75, list = F)
+train <- fetal_df_cleaned[inTrain,]
+valid <- fetal_df_cleaned[-inTrain,]
+
+# create the decision tree
+rpart_model <- rpart(Fetal_Health ~ ., method = "class", data = train)
+
+# display the decision tree
+prp(rpart_model, extra=1, faclen=0,  nn=T, box.palette="Blues")
+
+# creating our prediction
+rpart_result <- predict(rpart_model, newdata = valid[, !colnames(valid) %in% "Fetal_Health"], type = 'class')
+
+# confusion matrix
+confusionMatrix(rpart_result, as.factor(valid$Fetal_Health))
+
+# contribution of variables
+varImp(rpart_model) %>% kable()
+
+# Extract accuracy from the confusion matrix
+accuracy_rpart <- confusionMatrix(rpart_result, as.factor(valid$Fetal_Health))$overall["Accuracy"]
+kable(accuracy_rpart, align = "l")
+
+# creating the second dataset from the original
+fetal_df_cleaned2 <- fetal_df_cleaned %>%
+  #gather(variable, values, 1:dim(fetal_df_cleaned)[2]) %>% 
+  dplyr::select(AC, ALTV, ASTV, DP, MLTV, MSTV, Fetal_Health)
+
+# create some random numbers for reproduction
+set.seed(98)
+
+# Cross Validation Set-up
+inTrain2 <- createDataPartition(as.factor(fetal_df_cleaned2$Fetal_Health), p=.75, list = F)
+train2 <- fetal_df_cleaned2[inTrain2,]
+valid2 <- fetal_df_cleaned2[-inTrain2,]
+
+# create the decision tree
+rpart_model2 <- rpart(Fetal_Health ~ ., method = "class", data = train2)
+
+# display the decision tree
+prp(rpart_model2, extra=1, faclen=0,  nn=T, box.palette="Blues")
+
+# creating our prediction
+rpart_result2 <- predict(rpart_model2, newdata = valid2[, !colnames(valid2) %in% "Fetal_Health"], type = 'class')
+
+# confusion matrix
+confusionMatrix(rpart_result2, as.factor(valid2$Fetal_Health))
+
+# contribution of variables
+varImp(rpart_model2) %>% kable()
+
+# Extract accuracy from the confusion matrix
+accuracy_rpart2 <- confusionMatrix(rpart_result2, as.factor(valid2$Fetal_Health))$overall["Accuracy"]
+kable(accuracy_rpart2, align = "l")
+
+# set random numbers for reproduction
+set.seed(56)
+
+# set up the parameters for the model training process
+train_control <- trainControl(
+  method = "cv",
+  number = 5
+)
+
+# set up additional parameters for the model training process
+ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE,
+  savePredictions = T
+)
+
+# defining grid for hyperparameter tuning
+grid <-  expand.grid(size = seq(from = 1, to = 10, by = 1),
+                     decay = seq(from = 0.1, to = 0.5, by = 0.1))
+
+# train the nnet model
+nnet <- train(Fetal_Health ~ ., data = train2,
+                          method = 'nnet')
+
+# create nnet model plot
+plot(nnet)
+
+# compute and visualize variable importance for a neural network model 
+plot(varImp(nnet), top=10)
+
+# set a seed for reproducibility purposes
+set.seed(13)
+# create the model
+model = neuralnet(
+    Fetal_Health~AC + ALTV + ASTV + DP + MLTV + MSTV,
+data=train2,
+hidden=c(4,2), # specify the number of hidden layers and the number of neurons in each layer. In this case, there are two hidden layers with four and two neurons, respectively.
+linear.output = FALSE
+)
+
+# create the plot based on the model above
+plot(model,rep = "best")
+
+# make predictions on the test data using a previously trained model
+pred <- predict(model, valid2)
+
+# create a vector of labels for the three possible `fetal_health` status in the dataset.
+labels <- c("Normal", "Suspect", "Pathological")
+
+# creates a data frame with the column index of the maximum value in each row of the "pred" variable
+prediction_label <- data.frame(max.col(pred)) %>% 
+# use the mutate function to add a new column to the data frame called "pred"
+mutate(pred=labels[max.col.pred.]) %>%
+select(2) %>%
+# convert the data frame to a vector.
+unlist()
+
+# print the table
+table(valid2$Fetal_Health, prediction_label)
+
+# checking the accuracy
+check <- as.numeric(valid2$Fetal_Health) == max.col(pred)
+nn_accuracy <-  (sum(check)/nrow(valid2))
+nn_accuracy
+
+# Compare models
+model_names <- c("Decision Tree", "Neural Network")
+accuracies <- c(0.9056604, 0.7792453)
+results <- data.frame(Model = model_names, Accuracy = accuracies)
+results <- results[order(results$Accuracy, decreasing = TRUE), ]
+results
+```
+
+$~$
+
+.......................................................................
+
